@@ -1,11 +1,15 @@
 package microservices.task.services;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import microservices.task.dto.TaskAssignDTO;
 import microservices.task.dto.TaskCreateDTO;
 import microservices.task.dto.TaskDTO;
+import microservices.task.dto.TaskChecklistItemCreateDTO;
+import microservices.task.dto.TaskChecklistItemDTO;
 import microservices.task.dto.TaskUpdateDTO;
+import microservices.task.entities.TaskChecklistItemEntity;
 import microservices.task.entities.TaskEntity;
 import microservices.task.entities.TaskStatus;
 import microservices.task.repositories.TaskRepository;
@@ -33,6 +37,8 @@ public class TaskService {
                 .assigneeId(request.assigneeId())
                 .createdBy(request.createdBy())
                 .build();
+
+        applyChecklist(entity, request.checklist());
 
         return map(taskRepository.save(entity));
     }
@@ -67,6 +73,10 @@ public class TaskService {
             entity.setStatus(request.status());
         }
 
+        if (request.checklist() != null) {
+            resetChecklist(entity, request.checklist());
+        }
+
         return map(taskRepository.save(entity));
     }
 
@@ -84,6 +94,10 @@ public class TaskService {
 
     private TaskDTO map(TaskEntity entity) {
         TaskStatus status = entity.getStatus();
+        List<TaskChecklistItemDTO> checklist = entity.getChecklistItems().stream()
+                .filter(item -> !item.isArchived())
+                .map(this::mapChecklistItem)
+                .toList();
         return new TaskDTO(
                 entity.getId(),
                 entity.getTeamId(),
@@ -93,7 +107,44 @@ public class TaskService {
                 entity.getAssigneeId(),
                 entity.getCreatedBy(),
                 entity.getCreatedAt(),
+                entity.getUpdatedAt(),
+                checklist
+        );
+    }
+
+    private TaskChecklistItemDTO mapChecklistItem(TaskChecklistItemEntity entity) {
+        return new TaskChecklistItemDTO(
+                entity.getId(),
+                entity.getTitle(),
+                entity.getDescription(),
+                entity.isCompleted(),
+                entity.getPosition(),
+                entity.isArchived(),
+                entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );
+    }
+
+    private void applyChecklist(TaskEntity entity, List<TaskChecklistItemCreateDTO> checklist) {
+        if (checklist == null || checklist.isEmpty()) {
+            return;
+        }
+        for (int i = 0; i < checklist.size(); i++) {
+            TaskChecklistItemCreateDTO itemDto = checklist.get(i);
+            TaskChecklistItemEntity item = TaskChecklistItemEntity.builder()
+                    .title(itemDto.title())
+                    .description(itemDto.description())
+                    .completed(Boolean.TRUE.equals(itemDto.completed()))
+                    .position(itemDto.position() != null ? itemDto.position() : i)
+                    .archived(Boolean.TRUE.equals(itemDto.archived()))
+                    .build();
+            entity.addChecklistItem(item);
+        }
+    }
+
+    private void resetChecklist(TaskEntity entity, List<TaskChecklistItemCreateDTO> checklist) {
+        List<TaskChecklistItemEntity> currentItems = new ArrayList<>(entity.getChecklistItems());
+        currentItems.forEach(entity::removeChecklistItem);
+        applyChecklist(entity, checklist);
     }
 }

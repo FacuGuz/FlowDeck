@@ -48,7 +48,7 @@ public class TaskController {
     }
 
     @PatchMapping("/{id}")
-    public TaskDTO updateTask(@PathVariable Long id, @RequestBody TaskUpdateDTO request) {
+    public TaskDTO updateTask(@PathVariable Long id, @Valid @RequestBody TaskUpdateDTO request) {
         return taskService.updateTask(id, request);
     }
 

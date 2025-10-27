@@ -1,5 +1,6 @@
 package microservices.task.entities;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -7,6 +8,8 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -17,6 +20,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Getter
 @Setter
@@ -56,6 +61,11 @@ public class TaskEntity {
     @Column(nullable = false)
     private OffsetDateTime updatedAt;
 
+    @Builder.Default
+    @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("position ASC")
+    private List<TaskChecklistItemEntity> checklistItems = new ArrayList<>();
+
     @PrePersist
     void onCreate() {
         OffsetDateTime now = OffsetDateTime.now();
@@ -71,5 +81,15 @@ public class TaskEntity {
     @PreUpdate
     void onUpdate() {
         updatedAt = OffsetDateTime.now();
+    }
+
+    public void addChecklistItem(TaskChecklistItemEntity item) {
+        checklistItems.add(item);
+        item.setTask(this);
+    }
+
+    public void removeChecklistItem(TaskChecklistItemEntity item) {
+        checklistItems.remove(item);
+        item.setTask(null);
     }
 }
