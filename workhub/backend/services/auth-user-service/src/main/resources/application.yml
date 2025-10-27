@@ -1,0 +1,18 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: auth-user-service
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:15433}/auth_db
+    username: ${DB_USER:auth_user}
+    password: ${DB_PASSWORD:auth_password}
+    hikari:
+      data-source-properties:
+        TimeZone: UTC
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false

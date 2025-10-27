@@ -1,0 +1,50 @@
+services:
+  auth-postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: auth_user
+      POSTGRES_PASSWORD: auth_password
+    ports:
+      - "15433:5432"
+    volumes:
+      - auth-postgres-data:/var/lib/postgresql/data
+
+  team-postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: team_db
+      POSTGRES_USER: team_user
+      POSTGRES_PASSWORD: team_password
+    ports:
+      - "15434:5432"
+    volumes:
+      - team-postgres-data:/var/lib/postgresql/data
+
+  task-postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: task_db
+      POSTGRES_USER: task_user
+      POSTGRES_PASSWORD: task_password
+    ports:
+      - "15435:5432"
+    volumes:
+      - task-postgres-data:/var/lib/postgresql/data
+
+  notify-postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: notify_db
+      POSTGRES_USER: notify_user
+      POSTGRES_PASSWORD: notify_password
+    ports:
+      - "15436:5432"
+    volumes:
+      - notify-postgres-data:/var/lib/postgresql/data
+
+volumes:
+  auth-postgres-data:
+  team-postgres-data:
+  task-postgres-data:
+  notify-postgres-data:

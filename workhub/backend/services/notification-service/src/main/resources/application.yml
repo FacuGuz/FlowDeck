@@ -1,0 +1,18 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: notification-service
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:15436}/notify_db
+    username: ${DB_USER:notify_user}
+    password: ${DB_PASSWORD:notify_password}
+    hikari:
+      data-source-properties:
+        TimeZone: UTC
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
