@@ -36,6 +36,7 @@ public class UserService {
                 .email(request.email())
                 .fullName(request.fullName())
                 .role(request.role())
+                .password(request.password())
                 .build();
 
         UserEntity saved = userRepository.save(entity);
@@ -91,6 +92,7 @@ public class UserService {
                 entity.getEmail(),
                 entity.getFullName(),
                 entity.getRole(),
+                entity.getPassword(),
                 entity.getCreatedAt()
         );
     }

@@ -1,44 +1,32 @@
-import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { NgIf, AsyncPipe } from '@angular/common';
+import {Router, RouterLink} from '@angular/router';
+import { AuthService } from '../../../services/auth.service';
+import { ModalService } from '../../../services/modal.service';
 
 @Component({
   selector: 'app-header',
   standalone: true,
-  imports: [CommonModule],
+    imports: [NgIf, AsyncPipe, RouterLink],
   templateUrl: './header.component.html',
-  styles: [
-    `
-      @keyframes typing {
-        0% {
-          width: 0%;
-          visibility: hidden;
-        }
-        100% {
-          width: 100%;
-        }
-      }
-
-      @keyframes blink {
-        50% {
-          border-color: transparent;
-        }
-        100% {
-
-          border-color: #F5E5E1;
-        }
-      }
-
-      .animate-flowdeck {
-        animation: typing 4s steps(10) infinite alternate, blink 0.7s infinite;
-
-        display: inline-block;
-        overflow: hidden;
-        white-space: nowrap;
-        border-right-width: 1px;
-        border-right-color: #F5E5E1;
-        width: 100%;
-      }
-    `,
-  ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class HeaderComponent {}
+export class HeaderComponent {
+  private readonly authService = inject(AuthService);
+  protected readonly currentUser$ = this.authService.currentUser$;
+  private readonly router = inject(Router);
+  private readonly modalService = inject(ModalService);
+
+  logout(): void {
+    this.authService.logout();
+    void this.router.navigate(['/inicio']);
+  }
+
+  openLogin(): void {
+    this.modalService.open('login');
+  }
+
+  openRegister(): void {
+    this.modalService.open('register');
+  }
+}

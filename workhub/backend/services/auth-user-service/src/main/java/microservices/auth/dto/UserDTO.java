@@ -7,6 +7,7 @@ public record UserDTO(
         String email,
         String fullName,
         String role,
+        String password,
         OffsetDateTime createdAt
 ) {
 }

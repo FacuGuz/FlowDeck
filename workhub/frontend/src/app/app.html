@@ -6,11 +6,14 @@
 </style>
 <div class="flex min-h-screen flex-col bg-gray-50 text-gray-900">
   <app-header />
-  <div class="flex flex-1 overflow-hidden">
+  <div class="flex flex-1">
     <app-navbar />
-    <app-content />
+    <app-content class="flex-1"></app-content>
   </div>
   <app-footer />
 </div>
-<router-outlet />
 
+<ng-container *ngIf="activeModal$ | async as modal">
+  <app-login *ngIf="modal === 'login'"></app-login>
+  <app-register *ngIf="modal === 'register'"></app-register>
+</ng-container>

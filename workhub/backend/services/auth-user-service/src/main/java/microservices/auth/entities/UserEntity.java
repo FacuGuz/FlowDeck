@@ -37,6 +37,9 @@ public class UserEntity {
     @Column(nullable = false, length = 50)
     private String role;
 
+    @Column(nullable = false, length = 120)
+    private String password;
+
     @Column(nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 

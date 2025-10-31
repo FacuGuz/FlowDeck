@@ -1,0 +1,76 @@
+﻿<div class="fixed inset-0 z-40 flex items-center justify-center bg-gray-900/60 backdrop-blur-sm px-4">
+  <section class="relative mx-auto flex w-full max-w-md flex-col gap-6 rounded-2xl bg-white px-6 py-8 shadow-2xl ring-1 ring-gray-100">
+    <button
+      type="button"
+      (click)="close()"
+      class="absolute right-4 top-4 inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-700"
+      aria-label="Cerrar formulario de inicio de sesion"
+    >
+      <span class="sr-only">Cerrar</span>
+      x
+    </button>
+
+    <header class="space-y-1 text-center">
+      <h1 class="text-2xl font-semibold text-gray-900">Iniciar sesion</h1>
+      <p class="text-sm text-gray-600">
+        Ingresa tu correo electronico para acceder a FlowDeck.
+      </p>
+    </header>
+
+    <form [formGroup]="form" (ngSubmit)="submit()" class="flex flex-col gap-5">
+      <div class="flex flex-col gap-2">
+        <label for="email" class="text-sm font-medium text-gray-700">Correo electronico</label>
+        <input
+          id="email"
+          type="email"
+          formControlName="email"
+          class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-gray-500 focus:ring-2 focus:ring-gray-200"
+          placeholder="tucorreo@empresa.com"
+          autocomplete="email"
+        />
+        <p class="text-xs text-red-500" *ngIf="form.controls.email.touched && form.controls.email.invalid">
+          Ingresa un correo valido.
+        </p>
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <label for="password" class="text-sm font-medium text-gray-700">Contrasena</label>
+        <input
+          id="password"
+          type="password"
+          formControlName="password"
+          class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-gray-500 focus:ring-2 focus:ring-gray-200"
+          placeholder="********"
+          autocomplete="current-password"
+        />
+        <p class="text-xs text-red-500" *ngIf="form.controls.password.touched && form.controls.password.invalid">
+          Ingresa una contrasena valida (minimo 6 caracteres).
+        </p>
+      </div>
+
+      <button
+        type="submit"
+        class="inline-flex w-full items-center justify-center rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-400"
+        [disabled]="isSubmitting"
+      >
+        {{ isSubmitting ? 'Ingresando...' : 'Entrar' }}
+      </button>
+
+      <p class="text-center text-sm text-gray-600">
+        No tienes cuenta?
+        <button type="button" (click)="openRegister()" class="font-semibold text-gray-900 underline-offset-4 hover:underline">
+          Registrate aqui
+        </button>
+      </p>
+    </form>
+
+    <p *ngIf="errorMessage" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+      {{ errorMessage }}
+    </p>
+  </section>
+</div>
+
+
+
+
+
