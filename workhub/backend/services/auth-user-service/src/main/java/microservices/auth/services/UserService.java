@@ -8,6 +8,8 @@ import microservices.auth.dto.UserTeamCreateDTO;
 import microservices.auth.dto.UserTeamDTO;
 import microservices.auth.entities.UserEntity;
 import microservices.auth.entities.UserTeamEntity;
+import microservices.auth.enums.TeamRole;
+import microservices.auth.enums.UserRole;
 import microservices.auth.repositories.UserRepository;
 import microservices.auth.repositories.UserTeamRepository;
 import org.springframework.http.HttpStatus;
@@ -32,10 +34,12 @@ public class UserService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered");
         }
 
+        UserRole role = request.role() != null ? request.role() : UserRole.USER;
+
         UserEntity entity = UserEntity.builder()
                 .email(request.email())
                 .fullName(request.fullName())
-                .role(request.role())
+                .role(role)
                 .password(request.password())
                 .build();
 
@@ -73,9 +77,12 @@ public class UserService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "User already belongs to the team");
         }
 
+        TeamRole teamRole = request.role() != null ? request.role() : TeamRole.MEMBER;
+
         UserTeamEntity relationship = UserTeamEntity.builder()
                 .user(user)
                 .teamId(request.teamId())
+                .role(teamRole)
                 .build();
 
         return mapUserTeam(userTeamRepository.save(relationship));
@@ -102,6 +109,7 @@ public class UserService {
                 entity.getId(),
                 entity.getUser().getId(),
                 entity.getTeamId(),
+                entity.getRole(),
                 entity.getCreatedAt()
         );
     }

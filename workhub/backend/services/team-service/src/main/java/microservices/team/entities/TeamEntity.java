@@ -31,6 +31,9 @@ public class TeamEntity {
     @Column(nullable = false, unique = true, length = 120)
     private String name;
 
+    @Column(nullable = false, unique = true, length = 6)
+    private String code;
+
     @Column(nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 

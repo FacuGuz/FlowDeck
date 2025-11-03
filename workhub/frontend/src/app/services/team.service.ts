@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, catchError, throwError } from 'rxjs';
-import { Team } from '../interfaces/team';
+import { Team, TeamMember } from '../interfaces/team';
 import { endpointFor } from './api-config';
 import { toFriendlyError } from './error.utils';
 
@@ -29,6 +29,18 @@ export class TeamService {
   create(payload: { name: string }): Observable<Team> {
     return this.http
       .post<Team>(endpointFor('teams', '/teams'), payload)
+      .pipe(catchError((error) => throwError(() => toFriendlyError(error))));
+  }
+
+  findByCode(code: string): Observable<Team> {
+    return this.http
+      .get<Team>(endpointFor('teams', `/teams/code/${encodeURIComponent(code)}`))
+      .pipe(catchError((error) => throwError(() => toFriendlyError(error))));
+  }
+
+  addMember(teamId: number, payload: { userId: number }): Observable<TeamMember> {
+    return this.http
+      .post<TeamMember>(endpointFor('teams', `/teams/${teamId}/members`), payload)
       .pipe(catchError((error) => throwError(() => toFriendlyError(error))));
   }
 }

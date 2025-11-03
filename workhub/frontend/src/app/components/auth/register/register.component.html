@@ -43,26 +43,17 @@
           placeholder="tucorreo@empresa.com"
           autocomplete="email"
         />
-        <p class="text-xs text-red-500" *ngIf="form.controls.email.touched && form.controls.email.invalid">
+        @if(form.controls.email.touched && form.controls.email.invalid){
+        <p class="text-xs text-red-500">
           Ingresa un correo valido.
         </p>
+        }
       </div>
 
-      <div class="flex flex-col gap-2">
-        <label for="role" class="text-sm font-medium text-gray-700">Rol en tu equipo</label>
-        <select
-          id="role"
-          formControlName="role"
-          class="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-gray-500 focus:ring-2 focus:ring-gray-200"
-        >
-          <option *ngFor="let role of roles" [value]="role.value">
-            {{ role.label }}
-          </option>
-        </select>
-      </div>
+
 
       <div class="flex flex-col gap-2">
-        <label for="password" class="text-sm font-medium text-gray-700">Contrasena</label>
+        <label for="password" class="text-sm font-medium text-gray-700">Contraseña</label>
         <input
           id="password"
           type="password"
@@ -72,7 +63,7 @@
           autocomplete="new-password"
         />
         <p class="text-xs text-red-500" *ngIf="form.controls.password.touched && form.controls.password.invalid">
-          Ingresa una contrasena valida (minimo 6 caracteres).
+          Ingresa una contraseña valida (minimo 6 caracteres).
         </p>
       </div>
 

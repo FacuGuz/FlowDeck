@@ -1,6 +1,9 @@
 package microservices.team.services;
 
 import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 
 import microservices.team.dto.TeamCreateDTO;
 import microservices.team.dto.TeamDTO;
@@ -18,6 +21,10 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class TeamService {
 
+    private static final int CODE_LENGTH = 6;
+    private static final int LETTER_COUNT = 3;
+    private static final int MAX_GENERATION_ATTEMPTS = 25;
+
     private final TeamRepository teamRepository;
     private final TeamMemberRepository teamMemberRepository;
 
@@ -32,8 +39,11 @@ public class TeamService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Team name already in use");
         }
 
+        String code = generateUniqueCode();
+
         TeamEntity entity = TeamEntity.builder()
                 .name(request.name())
+                .code(code)
                 .build();
 
         return mapTeam(teamRepository.save(entity));
@@ -49,6 +59,18 @@ public class TeamService {
     @Transactional(readOnly = true)
     public TeamDTO getTeam(Long id) {
         return mapTeam(findTeamEntity(id));
+    }
+
+    @Transactional(readOnly = true)
+    public TeamDTO getTeamByCode(String code) {
+        String normalized = normalizeCode(code);
+        if (normalized.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Team code is required");
+        }
+
+        Optional<TeamEntity> team = teamRepository.findByCode(normalized);
+        return team.map(this::mapTeam)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Team not found"));
     }
 
     @Transactional(readOnly = true)
@@ -94,7 +116,7 @@ public class TeamService {
     }
 
     private TeamDTO mapTeam(TeamEntity entity) {
-        return new TeamDTO(entity.getId(), entity.getName(), entity.getCreatedAt());
+        return new TeamDTO(entity.getId(), entity.getName(), entity.getCode(), entity.getCreatedAt());
     }
 
     private TeamMemberDTO mapMember(TeamMemberEntity entity) {
@@ -104,5 +126,31 @@ public class TeamService {
                 entity.getUserId(),
                 entity.getCreatedAt()
         );
+    }
+
+    private String normalizeCode(String code) {
+        return code == null ? "" : code.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private String generateUniqueCode() {
+        for (int attempt = 0; attempt < MAX_GENERATION_ATTEMPTS; attempt++) {
+            String candidate = generateCode();
+            if (!teamRepository.existsByCode(candidate)) {
+                return candidate;
+            }
+        }
+        throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Unable to generate team code");
+    }
+
+    private String generateCode() {
+        ThreadLocalRandom random = ThreadLocalRandom.current();
+        StringBuilder builder = new StringBuilder(CODE_LENGTH);
+        for (int i = 0; i < LETTER_COUNT; i++) {
+            builder.append((char) ('A' + random.nextInt(26)));
+        }
+        for (int i = LETTER_COUNT; i < CODE_LENGTH; i++) {
+            builder.append(random.nextInt(10));
+        }
+        return builder.toString();
     }
 }

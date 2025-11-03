@@ -46,6 +46,11 @@ public class TeamController {
         return teamService.getTeam(id);
     }
 
+    @GetMapping("/code/{code}")
+    public TeamDTO getTeamByCode(@PathVariable String code) {
+        return teamService.getTeamByCode(code);
+    }
+
     @GetMapping("/{id}/members")
     public List<TeamMemberDTO> listMembers(@PathVariable Long id) {
         return teamService.listMembers(id);

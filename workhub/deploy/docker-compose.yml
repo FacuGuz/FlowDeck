@@ -5,6 +5,8 @@ services:
       POSTGRES_DB: auth_db
       POSTGRES_USER: auth_user
       POSTGRES_PASSWORD: auth_password
+      TZ: UTC
+    command: ["postgres", "-c", "TimeZone=UTC"]
     ports:
       - "15433:5432"
     volumes:
@@ -16,6 +18,8 @@ services:
       POSTGRES_DB: team_db
       POSTGRES_USER: team_user
       POSTGRES_PASSWORD: team_password
+      TZ: UTC
+    command: ["postgres", "-c", "TimeZone=UTC"]
     ports:
       - "15434:5432"
     volumes:
@@ -27,6 +31,8 @@ services:
       POSTGRES_DB: task_db
       POSTGRES_USER: task_user
       POSTGRES_PASSWORD: task_password
+      TZ: UTC
+    command: ["postgres", "-c", "TimeZone=UTC"]
     ports:
       - "15435:5432"
     volumes:
@@ -38,6 +44,8 @@ services:
       POSTGRES_DB: notify_db
       POSTGRES_USER: notify_user
       POSTGRES_PASSWORD: notify_password
+      TZ: UTC
+    command: ["postgres", "-c", "TimeZone=UTC"]
     ports:
       - "15436:5432"
     volumes:

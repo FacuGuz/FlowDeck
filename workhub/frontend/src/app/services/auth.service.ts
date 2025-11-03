@@ -1,7 +1,8 @@
-﻿import { Injectable, inject } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable, catchError, map, of, switchMap, tap, throwError } from 'rxjs';
 import { User, UserCreateRequest, UserTeam } from '../interfaces/user';
+import { TeamRole } from '../enums/team-role';
 import { endpointFor } from './api-config';
 import { toFriendlyError } from './error.utils';
 
@@ -31,7 +32,7 @@ export class AuthService {
       ),
       switchMap((user) => {
         if (!user) {
-          return throwError(() => toFriendlyError(new Error('Credenciales invÃ¡lidas')));
+          return throwError(() => toFriendlyError(new Error('Credenciales invalidas')));
         }
         return of(user);
       }),
@@ -43,6 +44,12 @@ export class AuthService {
   getUserTeams(userId: number): Observable<UserTeam[]> {
     return this.http
       .get<UserTeam[]>(endpointFor('auth', `/users/${userId}/teams`))
+      .pipe(catchError((error) => throwError(() => toFriendlyError(error))));
+  }
+
+  addUserToTeam(userId: number, payload: { teamId: number; role: TeamRole }): Observable<UserTeam> {
+    return this.http
+      .post<UserTeam>(endpointFor('auth', `/users/${userId}/teams`), payload)
       .pipe(catchError((error) => throwError(() => toFriendlyError(error))));
   }
 
@@ -87,4 +94,3 @@ export class AuthService {
     window.localStorage.setItem(this.storageKey, JSON.stringify(user));
   }
 }
-

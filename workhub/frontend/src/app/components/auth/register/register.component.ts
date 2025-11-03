@@ -5,6 +5,7 @@ import { NgFor, NgIf } from '@angular/common';
 import { AuthService } from '../../../services/auth.service';
 import { toFriendlyError } from '../../../services/error.utils';
 import { ModalService } from '../../../services/modal.service';
+import { UserRole } from '../../../enums/user-role';
 
 @Component({
   selector: 'app-register',
@@ -19,17 +20,16 @@ export class RegisterComponent {
   private readonly router = inject(Router);
   private readonly modalService = inject(ModalService);
 
-  readonly roles = [
-    { value: 'OWNER', label: 'Propietario' },
-    { value: 'MANAGER', label: 'Manager' },
-    { value: 'MEMBER', label: 'Miembro' },
+  readonly roles: ReadonlyArray<{ value: UserRole; label: string }> = [
+    { value: 'USER', label: 'Miembro' },
+    { value: 'ADMIN', label: 'Administrador' },
   ];
 
   readonly form = this.fb.nonNullable.group({
-    fullName: ['', [Validators.required, Validators.maxLength(120)]],
-    email: ['', [Validators.required, Validators.email, Validators.maxLength(320)]],
-    role: ['MEMBER', [Validators.required]],
-    password: ['', [Validators.required, Validators.minLength(6)]]
+    fullName: this.fb.nonNullable.control('', [Validators.required, Validators.maxLength(120)]),
+    email: this.fb.nonNullable.control('', [Validators.required, Validators.email, Validators.maxLength(320)]),
+    role: this.fb.nonNullable.control<UserRole>('USER', [Validators.required]),
+    password: this.fb.nonNullable.control('', [Validators.required, Validators.minLength(6)])
   });
 
   isSubmitting = false;
