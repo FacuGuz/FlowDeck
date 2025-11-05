@@ -1,7 +1,6 @@
 package microservices.auth.services;
 
 import java.util.List;
-
 import microservices.auth.dto.UserCreateDTO;
 import microservices.auth.dto.UserDTO;
 import microservices.auth.dto.UserTeamCreateDTO;

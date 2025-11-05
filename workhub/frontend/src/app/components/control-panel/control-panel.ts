@@ -30,6 +30,7 @@ import { TaskStatus, TaskCreateRequest } from '../../interfaces/task';
 import { Team } from '../../interfaces/team';
 import { User, UserTeam } from '../../interfaces/user';
 import { TeamRole } from '../../enums/team-role';
+import { UserRole } from '../../enums/user-role';
 
 type PanelForm = 'task' | 'team' | 'join';
 
@@ -64,18 +65,18 @@ export class ControlPanel {
   ]).pipe(
     switchMap(([user]) => {
       if (!user) {
-        return of<UserTeam[]>([]);
-      }
-      return this.authService.getUserTeams(user.id);
-    }),
-    shareReplay(1)
-  );
+    return of<UserTeam[]>([]);
+  }
+  return this.authService.getUserTeams(user.id);
+}),
+shareReplay(1)
+);
 
-  protected readonly teamOptions$ = this.memberships$.pipe(
-    switchMap((memberships) => {
-      if (!memberships.length) {
-        return of<TeamOption[]>([]);
-      }
+protected readonly teamOptions$ = this.memberships$.pipe(
+switchMap((memberships) => {
+  if (!memberships.length) {
+    return of<TeamOption[]>([]);
+  }
 
       const requests = memberships.map((membership) =>
         this.teamService.get(membership.teamId).pipe(
@@ -102,9 +103,12 @@ export class ControlPanel {
     'DONE',
   ];
 
+
+
+
   protected activePanel: PanelForm | null = null;
   protected isProcessing = false;
-  protected feedback: { type: 'success' | 'error'; text: string } | null = null;
+  protected feedback: { type: 'success' | 'error'; text: string; } | undefined ;
 
   private currentUser: User | null = null;
 
@@ -324,24 +328,62 @@ export class ControlPanel {
   }
 
   private refreshTeams(): void {
-    this.refreshTeams$.next(undefined);
-  }
+this.refreshTeams$.next(undefined);
+}
 
-  private startProcessing(): void {
-    this.isProcessing = true;
-    this.feedback = null;
+private startProcessing(): void {
+this.isProcessing = true;
+
   }
 
   private stopProcessing(): void {
     this.isProcessing = false;
   }
 
-  private setFeedback(type: 'success' | 'error', text: string): void {
-    this.feedback = { type, text };
+private setFeedback(type: 'success' | 'error', text: string): void {
+  this.feedback = { type, text };
+}
+
+private handleError(error: unknown): void {
+  const friendly = toFriendlyError(error);
+  this.setFeedback('error', friendly.message);
+}
+
+  protected translateStatus(status: TaskStatus): string {
+    switch (status) {
+      case 'TODO':
+        return 'Por hacer';
+      case 'IN_PROGRESS':
+        return 'En progreso';
+      case 'BLOCKED':
+        return 'Bloqueada';
+      case 'DONE':
+        return 'Completada';
+      default:
+        return status;
+    }
   }
 
-  private handleError(error: unknown): void {
-    const friendly = toFriendlyError(error);
-    this.setFeedback('error', friendly.message);
+  protected translateTeamRole(role: TeamRole): string {
+    switch (role) {
+      case 'OWNER':
+        return 'Propietario';
+      case 'MANAGER':
+        return 'Manager';
+      case 'MEMBER':
+        return 'Miembro';
+      default:
+        return role;
+    }
+  }
+
+  protected translateUserRole(role: UserRole): string {
+    switch (role) {
+      case 'ADMIN':
+        return 'Administrador';
+      case 'USER':
+      default:
+        return 'Usuario';
+    }
   }
 }

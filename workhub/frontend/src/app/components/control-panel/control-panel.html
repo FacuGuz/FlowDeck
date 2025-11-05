@@ -10,7 +10,7 @@
     <ng-container *ngIf="teamOptions$ | async as teamOptions">
       <div *ngIf="feedback" class="rounded-xl border p-4 text-sm"
            [ngClass]="feedback.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700'">
-        {{ feedback.text }}
+        {{ feedback?.text }}
       </div>
 
       <div class="flex flex-wrap gap-3">
@@ -116,7 +116,7 @@
         {{ isProcessing ? 'Creando...' : 'Crear tarea' }}
       </button>
       <div *ngIf="feedback?.type === 'error'" class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
-        {{ feedback.text }}
+        {{ feedback?.text }}
       </div>
     </form>
   </div>
@@ -138,7 +138,7 @@
         {{ isProcessing ? 'Creando...' : 'Crear equipo' }}
       </button>
       <div *ngIf="feedback?.type === 'error'" class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
-        {{ feedback.text }}
+        {{ feedback?.text }}
       </div>
     </form>
   </div>
@@ -161,7 +161,7 @@
         {{ isProcessing ? 'Uniendo...' : 'Unirme al equipo' }}
       </button>
       <div *ngIf="feedback?.type === 'error'" class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
-        {{ feedback.text }}
+        {{ feedback?.text }}
       </div>
     </form>
   </div>

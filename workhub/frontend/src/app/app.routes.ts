@@ -1,10 +1,10 @@
 ﻿import { Routes } from '@angular/router';
-import { ControlPanel } from './components/control-panel/control-panel';
 import { Teams } from './components/teams/teams';
 import { Tasks } from './components/tasks/tasks';
 import { Calendary } from './components/calendary/calendary';
 import { Settings } from './components/settings/settings';
 import { Landing } from './components/landing/landing';
+import {ControlPanel} from './components/control-panel/control-panel';
 
 export const routes: Routes = [
   {
