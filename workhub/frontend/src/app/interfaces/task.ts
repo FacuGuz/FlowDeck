@@ -18,6 +18,7 @@ export interface Task {
   description: string;
   status: TaskStatus;
   assigneeId: number | null;
+  dueOn: string | null;
   createdBy: number;
   createdAt: string;
   updatedAt: string;
@@ -37,6 +38,7 @@ export interface TaskCreateRequest {
   title: string;
   description: string;
   status?: TaskStatus;
+  dueOn?: string | null;
   createdBy: number;
   assigneeId?: number;
   checklist?: TaskChecklistItemInput[];
@@ -46,6 +48,7 @@ export interface TaskUpdateRequest {
   title?: string;
   description?: string;
   status?: TaskStatus;
+  dueOn?: string | null;
   checklist?: TaskChecklistItemInput[];
 }
 

@@ -35,6 +35,7 @@ public class TaskService {
                 .description(request.description())
                 .status(request.status())
                 .assigneeId(request.assigneeId())
+                .dueOn(request.dueOn())
                 .createdBy(request.createdBy())
                 .build();
 
@@ -44,10 +45,17 @@ public class TaskService {
     }
 
     @Transactional(readOnly = true)
-    public List<TaskDTO> listTasks(Long teamId) {
-        List<TaskEntity> tasks = (teamId != null)
-                ? taskRepository.findByTeamId(teamId)
-                : taskRepository.findAll();
+    public List<TaskDTO> listTasks(Long teamId, Long assigneeId) {
+        List<TaskEntity> tasks;
+        if (teamId != null && assigneeId != null) {
+            tasks = taskRepository.findByTeamIdAndAssigneeId(teamId, assigneeId);
+        } else if (teamId != null) {
+            tasks = taskRepository.findByTeamId(teamId);
+        } else if (assigneeId != null) {
+            tasks = taskRepository.findByAssigneeId(assigneeId);
+        } else {
+            tasks = taskRepository.findAll();
+        }
 
         return tasks.stream()
                 .map(this::map)
@@ -71,6 +79,10 @@ public class TaskService {
         }
         if (request.status() != null) {
             entity.setStatus(request.status());
+        }
+
+        if (request.dueOn() != null) {
+            entity.setDueOn(request.dueOn());
         }
 
         if (request.checklist() != null) {
@@ -105,6 +117,7 @@ public class TaskService {
                 entity.getDescription(),
                 status,
                 entity.getAssigneeId(),
+                entity.getDueOn(),
                 entity.getCreatedBy(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt(),

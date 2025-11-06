@@ -1,1 +1,73 @@
-<p>tasks works!</p>
+<div class="bg-white rounded-lg shadow-md">
+  <ul class="divide-y divide-gray-200">
+    @for (task of tareas; track task.id) {
+      <li class="p-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between hover:bg-gray-50">
+        <div class="min-w-0 space-y-2">
+          <span class="block text-sm font-semibold text-gray-600">
+            Tarea del equipo: {{ task.teamName ?? 'Equipo sin nombre' }}
+          </span>
+          <p class="text-base font-medium text-gray-800">
+            Titulo: {{ task.title }}
+          </p>
+          <p class="text-sm text-gray-500">
+            Responsable:
+            <span class="font-medium text-gray-600">
+              {{ task.assigneeName ?? 'Sin responsable' }}
+              {{ task.assigneeEmail && task.assigneeName ? ' (' + task.assigneeEmail + ')' : '' }}
+            </span>
+          </p>
+          <p class="text-sm text-gray-500">
+            Vence:
+            <span class="font-medium text-gray-600">
+              {{ formatDueDate(task.dueOn) }}
+            </span>
+          </p>
+          @if (task.checklist.length) {
+            <div class="mt-2 space-y-2">
+              <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Checklist</p>
+              <ul class="space-y-2">
+                @for (item of task.checklist; track item.id; let idx = $index) {
+                  <li class="flex items-start gap-2">
+                    <input type="checkbox"
+                           class="mt-1 h-4 w-4 rounded border-gray-300"
+                           [checked]="item.completed"
+                           (change)="onChecklistToggle(task, idx)" />
+                    <div class="flex-1 space-y-1">
+                      <span class="text-sm font-medium text-gray-700"
+                            [class.line-through]="item.completed"
+                            [class.text-gray-400]="item.completed">
+                        {{ item.title }}
+                      </span>
+                      @if (item.description) {
+                        <p class="text-xs text-gray-500"
+                           [class.line-through]="item.completed">
+                          {{ item.description }}
+                        </p>
+                      }
+                    </div>
+                  </li>
+                }
+              </ul>
+            </div>
+          }
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Estado</span>
+          <select
+            class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-60"
+            [ngModel]="task.status"
+            (ngModelChange)="onStatusChange(task, $event)"
+          >
+            @for (status of taskStatuses; track status) {
+              <option [ngValue]="status">{{ translateStatus(status) }}</option>
+            }
+          </select>
+        </div>
+      </li>
+    } @empty {
+      <li class="p-4 text-center text-gray-500">
+        No se encontraron tareas asignadas
+      </li>
+    }
+  </ul>
+</div>

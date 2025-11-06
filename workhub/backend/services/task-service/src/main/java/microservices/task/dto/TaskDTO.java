@@ -12,6 +12,7 @@ public record TaskDTO(
         String description,
         TaskStatus status,
         Long assigneeId,
+        OffsetDateTime dueOn,
         Long createdBy,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt,

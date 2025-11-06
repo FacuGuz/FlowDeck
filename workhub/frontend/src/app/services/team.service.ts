@@ -38,6 +38,12 @@ export class TeamService {
       .pipe(catchError((error) => throwError(() => toFriendlyError(error))));
   }
 
+  listMembers(teamId: number): Observable<TeamMember[]> {
+    return this.http
+      .get<TeamMember[]>(endpointFor('teams', `/teams/${teamId}/members`))
+      .pipe(catchError((error) => throwError(() => toFriendlyError(error))));
+  }
+
   addMember(teamId: number, payload: { userId: number }): Observable<TeamMember> {
     return this.http
       .post<TeamMember>(endpointFor('teams', `/teams/${teamId}/members`), payload)

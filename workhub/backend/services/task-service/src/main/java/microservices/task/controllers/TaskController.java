@@ -38,8 +38,11 @@ public class TaskController {
     }
 
     @GetMapping
-    public List<TaskDTO> listTasks(@RequestParam(required = false) Long teamId) {
-        return taskService.listTasks(teamId);
+    public List<TaskDTO> listTasks(
+            @RequestParam(required = false) Long teamId,
+            @RequestParam(required = false) Long assigneeId
+    ) {
+        return taskService.listTasks(teamId, assigneeId);
     }
 
     @GetMapping("/{id}")

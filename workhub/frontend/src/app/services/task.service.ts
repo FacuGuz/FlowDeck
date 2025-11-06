@@ -9,10 +9,13 @@ import { toFriendlyError } from './error.utils';
 export class TaskService {
   private readonly http = inject(HttpClient);
 
-  list(params?: { teamId?: number }): Observable<Task[]> {
+  list(params?: { teamId?: number; assigneeId?: number }): Observable<Task[]> {
     let httpParams = new HttpParams();
     if (params?.teamId != null) {
       httpParams = httpParams.set('teamId', params.teamId);
+    }
+    if (params?.assigneeId != null) {
+      httpParams = httpParams.set('assigneeId', params.assigneeId);
     }
 
     return this.http

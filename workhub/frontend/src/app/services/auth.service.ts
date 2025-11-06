@@ -41,6 +41,12 @@ export class AuthService {
     );
   }
 
+  getUser(id: number): Observable<User> {
+    return this.http
+      .get<User>(endpointFor('auth', `/users/${id}`))
+      .pipe(catchError((error) => throwError(() => toFriendlyError(error))));
+  }
+
   getUserTeams(userId: number): Observable<UserTeam[]> {
     return this.http
       .get<UserTeam[]>(endpointFor('auth', `/users/${userId}/teams`))

@@ -6,19 +6,24 @@ import {
   inject,
 } from '@angular/core';
 import {
+  FormArray,
   FormBuilder,
+  FormGroup,
   Validators,
   ReactiveFormsModule,
 } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   BehaviorSubject,
+  catchError,
   combineLatest,
+  distinctUntilChanged,
   firstValueFrom,
   forkJoin,
   map,
   of,
   shareReplay,
+  startWith,
   switchMap,
 } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
@@ -27,7 +32,7 @@ import { TeamService } from '../../services/team.service';
 import { ModalService } from '../../services/modal.service';
 import { toFriendlyError } from '../../services/error.utils';
 import { TaskStatus, TaskCreateRequest } from '../../interfaces/task';
-import { Team } from '../../interfaces/team';
+import { Team, TeamMember } from '../../interfaces/team';
 import { User, UserTeam } from '../../interfaces/user';
 import { TeamRole } from '../../enums/team-role';
 import { UserRole } from '../../enums/user-role';
@@ -37,6 +42,13 @@ type PanelForm = 'task' | 'team' | 'join';
 interface TeamOption {
   team: Team;
   membershipRole: TeamRole;
+}
+
+interface TeamMemberOption {
+  memberId: number;
+  userId: number;
+  fullName: string;
+  email: string;
 }
 
 @Component({
@@ -65,18 +77,18 @@ export class ControlPanel {
   ]).pipe(
     switchMap(([user]) => {
       if (!user) {
-    return of<UserTeam[]>([]);
-  }
-  return this.authService.getUserTeams(user.id);
-}),
-shareReplay(1)
-);
+        return of<UserTeam[]>([]);
+      }
+      return this.authService.getUserTeams(user.id);
+    }),
+    shareReplay(1)
+  );
 
-protected readonly teamOptions$ = this.memberships$.pipe(
-switchMap((memberships) => {
-  if (!memberships.length) {
-    return of<TeamOption[]>([]);
-  }
+  protected readonly teamOptions$ = this.memberships$.pipe(
+    switchMap((memberships) => {
+      if (!memberships.length) {
+        return of<TeamOption[]>([]);
+      }
 
       const requests = memberships.map((membership) =>
         this.teamService.get(membership.teamId).pipe(
@@ -125,7 +137,54 @@ switchMap((memberships) => {
       Validators.maxLength(2000),
     ]),
     status: this.fb.nonNullable.control<TaskStatus>('TODO'),
+    assigneeId: this.fb.control<number | null>(null),
+    dueOn: this.fb.control<string | null>(null),
+    checklist: this.fb.array<FormGroup>([]),
   });
+
+  protected get checklist(): FormArray<FormGroup> {
+    return this.createTaskForm.controls.checklist as FormArray<FormGroup>;
+  }
+
+  protected get checklistControls(): FormGroup[] {
+    return this.checklist.controls as FormGroup[];
+  }
+
+  protected readonly teamMembers$ = this.createTaskForm.controls.teamId.valueChanges.pipe(
+    startWith(this.createTaskForm.controls.teamId.value),
+    distinctUntilChanged(),
+    switchMap((teamId) => {
+      if (teamId == null) {
+        return of<TeamMemberOption[]>([]);
+      }
+
+      return this.teamService.listMembers(teamId).pipe(
+        switchMap((members: TeamMember[]) => {
+          if (!members.length) {
+            return of<TeamMemberOption[]>([]);
+          }
+
+          const requests = members.map((member) =>
+            this.authService.getUser(member.userId).pipe(
+              map((user) => ({
+                memberId: member.id,
+                userId: member.userId,
+                fullName: user.fullName,
+                email: user.email,
+              }))
+            )
+          );
+
+          return forkJoin(requests);
+        }),
+        catchError((error) => {
+          this.handleError(error);
+          return of<TeamMemberOption[]>([]);
+        })
+      );
+    }),
+    shareReplay(1)
+  );
 
   readonly createTeamForm = this.fb.nonNullable.group({
     name: ['', [Validators.required, Validators.maxLength(120)]],
@@ -144,7 +203,16 @@ switchMap((memberships) => {
       .subscribe((user) => {
         this.currentUser = user;
       });
+
+    this.createTaskForm.controls.teamId.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        this.createTaskForm.controls.assigneeId.setValue(null);
+      });
+
+    this.resetChecklist();
   }
+
 
   openPanel(panel: PanelForm): void {
     if (!this.ensureAuthenticated()) {
@@ -161,7 +229,10 @@ switchMap((memberships) => {
           title: '',
           description: '',
           status: 'TODO',
+          assigneeId: null,
+          dueOn: null,
         });
+        this.resetChecklist();
         break;
       case 'team':
         this.createTeamForm.reset({ name: '' });
@@ -279,7 +350,7 @@ switchMap((memberships) => {
     this.startProcessing();
 
     try {
-      const { title, description, status } =
+      const { title, description, status, assigneeId, dueOn, checklist } =
         this.createTaskForm.getRawValue();
       const teamIdControl = this.createTaskForm.controls.teamId;
       const teamId = teamIdControl.value;
@@ -290,12 +361,35 @@ switchMap((memberships) => {
         return;
       }
 
+      const dueOnIso = dueOn ? `${dueOn}T00:00:00Z` : null;
+
+      const checklistPayload =
+        (checklist ?? [])
+          .map((item, index) => {
+            const title = (item?.['title'] ?? '').trim();
+            if (!title) {
+              return null;
+            }
+            const description = (item?.['description'] ?? '').trim();
+            return {
+              title,
+              description: description || undefined,
+              completed: Boolean(item?.['completed']),
+              position: index,
+              archived: false,
+            };
+          })
+          .filter((value): value is NonNullable<typeof value> => value != null);
+
       const payload: TaskCreateRequest = {
         teamId,
         title,
         description,
         createdBy: user.id,
         status: status ?? 'TODO',
+        assigneeId: assigneeId ?? undefined,
+        dueOn: dueOnIso,
+        checklist: checklistPayload.length ? checklistPayload : undefined,
       };
 
       await firstValueFrom(this.taskService.create(payload));
@@ -305,7 +399,10 @@ switchMap((memberships) => {
         title: '',
         description: '',
         status: 'TODO',
+        assigneeId: null,
+        dueOn: null,
       });
+      this.resetChecklist();
       this.closePanel();
       this.setFeedback('success', 'Tarea creada correctamente.');
     } catch (error) {
@@ -328,26 +425,70 @@ switchMap((memberships) => {
   }
 
   private refreshTeams(): void {
-this.refreshTeams$.next(undefined);
-}
+    this.refreshTeams$.next(undefined);
+  }
 
-private startProcessing(): void {
-this.isProcessing = true;
-
+  private startProcessing(): void {
+    this.isProcessing = true;
   }
 
   private stopProcessing(): void {
     this.isProcessing = false;
   }
 
-private setFeedback(type: 'success' | 'error', text: string): void {
-  this.feedback = { type, text };
-}
+  private setFeedback(type: 'success' | 'error', text: string): void {
+    this.feedback = { type, text };
+  }
 
-private handleError(error: unknown): void {
-  const friendly = toFriendlyError(error);
-  this.setFeedback('error', friendly.message);
-}
+  private handleError(error: unknown): void {
+    const friendly = toFriendlyError(error);
+    this.setFeedback('error', friendly.message);
+  }
+
+  protected addChecklistItem(initial?: {
+    title?: string;
+    description?: string;
+    completed?: boolean;
+  }): void {
+    this.checklist.push(this.createChecklistItemGroup(initial));
+  }
+
+  protected removeChecklistItem(index: number): void {
+    if (index < 0 || index >= this.checklist.length) {
+      return;
+    }
+    this.checklist.removeAt(index);
+    if (!this.checklist.length) {
+      this.addChecklistItem();
+    }
+  }
+
+  protected trackChecklistItem(index: number): number {
+    return index;
+  }
+
+  private resetChecklist(): void {
+    while (this.checklist.length) {
+      this.checklist.removeAt(0);
+    }
+    this.addChecklistItem();
+  }
+
+  private createChecklistItemGroup(initial?: {
+    title?: string;
+    description?: string;
+    completed?: boolean;
+  }): FormGroup {
+    return this.fb.group({
+      title: this.fb.control(initial?.title ?? '', [
+        Validators.maxLength(180),
+      ]),
+      description: this.fb.control(initial?.description ?? '', [
+        Validators.maxLength(2000),
+      ]),
+      completed: this.fb.control(initial?.completed ?? false),
+    });
+  }
 
   protected translateStatus(status: TaskStatus): string {
     switch (status) {

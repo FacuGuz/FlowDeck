@@ -21,6 +21,7 @@ import lombok.Setter;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 @Getter
@@ -60,6 +61,13 @@ public class TaskEntity {
 
     @Column(nullable = false)
     private OffsetDateTime updatedAt;
+
+    @Column(name = "due_on")
+    private OffsetDateTime dueOn;
+
+    @Column(nullable = true)
+    private Date dueOn;
+
 
     @Builder.Default
     @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true)
