@@ -1,220 +1,41 @@
 ﻿<section class="flex flex-1 flex-col gap-5 overflow-y-auto p-6">
   <header class="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
     <div>
-      <h2 class="text-xl font-semibold text-slate-900">Resumen del equipo</h2>
-      <p class="mt-1 text-sm text-slate-600">Estado general, tareas y actividad reciente del tablero.</p>
+      <h2 class="text-xl font-semibold text-slate-900">Dashboard Personal</h2>
+      <p class="mt-1 text-sm text-slate-600">Resumen de tu actividad, tareas próximas y equipos.</p>
     </div>
   </header>
 
-  <ng-container *ngIf="user$ | async as user; else guestView">
-    <ng-container *ngIf="teamOptions$ | async as teamOptions">
-      <div *ngIf="feedback" class="rounded-xl border p-4 text-sm"
-           [ngClass]="feedback.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700'">
-        {{ feedback?.text }}
-      </div>
+  @if (user$ | async; as user) {
+    @if (teamOptions$ | async; as teamOptions) {
 
-      <div class="flex flex-wrap gap-3">
-        <button type="button"
-                class="group relative overflow-hidden rounded-lg bg-slate-900 px-6 py-3 text-white transition hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-50"
-                (click)="openPanel('task')"
-                [disabled]="teamOptions.length === 0">
-          <span class="relative z-10 text-sm font-semibold">CREAR TAREA</span>
-          <div class="absolute inset-0 bg-gradient-to-r from-sky-600 to-indigo-600 opacity-0 transition-opacity group-hover:opacity-20"></div>
-        </button>
+      @if (feedback) {
+        <div class="rounded-xl border p-4 text-sm"
+             [ngClass]="feedback.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700'">
+          {{ feedback?.text }}
+        </div>
+      }
 
-        <button type="button"
-                class="group relative overflow-hidden rounded-lg bg-slate-900 px-6 py-3 text-white transition hover:-translate-y-0.5 hover:shadow-lg"
-                (click)="openPanel('team')">
-          <span class="relative z-10 text-sm font-semibold">CREAR EQUIPO</span>
-          <div class="absolute inset-0 bg-gradient-to-r from-emerald-600 to-teal-600 opacity-0 transition-opacity group-hover:opacity-20"></div>
-        </button>
+      <div class="grid grow grid-cols-1 lg:grid-cols-2 gap-5">
 
-        <button type="button"
-                class="group relative overflow-hidden rounded-lg bg-slate-900 px-6 py-3 text-white transition hover:-translate-y-0.5 hover:shadow-lg"
-                (click)="openPanel('join')">
-          <span class="relative z-10 text-sm font-semibold">UNIRME A EQUIPO</span>
-          <div class="absolute inset-0 bg-gradient-to-r from-orange-600 to-rose-600 opacity-0 transition-opacity group-hover:opacity-20"></div>
-        </button>
-      </div>
+        <article class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Mis Próximas Tareas</h3>
+          <p class="mt-3 text-sm text-slate-700">Aquí aparecerán tus tareas asignadas con vencimiento próximo.</p>
+        </article>
 
-      <div class="grid grow gap-5">
         <article class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Actividad reciente</h3>
-          <p class="mt-3 text-sm text-slate-700">Proximamente apareceran las ultimas actualizaciones y comentarios del equipo.</p>
-        </article>
-
-        <article class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Codigos de tus equipos</h3>
-          <ng-container *ngIf="teamOptions.length; else noCodes">
-            <ul class="mt-3 space-y-3">
-              <li *ngFor="let option of teamOptions; trackBy: trackTeamOption"
-                  class="flex items-center justify-between gap-4 rounded-lg border border-slate-200 px-4 py-3">
-                <div>
-                  <p class="text-sm font-semibold text-slate-900">{{ option.team.name }}</p>
-                  <span class="text-xs text-slate-500">Rol: {{ option.membershipRole }}</span>
-                </div>
-                <span class="font-mono text-lg font-semibold text-slate-900">{{ option.team.code }}</span>
-              </li>
-            </ul>
-          </ng-container>
+          <p class="mt-3 text-sm text-slate-700">Próximamente aparecerán las últimas actualizaciones y comentarios del equipo.</p>
         </article>
       </div>
-    </ng-container>
-  </ng-container>
+    }
+  } @else {
+    <div class="rounded-2xl border border-slate-200 bg-white px-8 py-10 text-slate-700 shadow-sm">
+      <p class="mb-6 text-sm">Inicia sesion para crear tareas, administrar equipos o unirte mediante un codigo.</p>
+      <button type="button" (click)="openLogin()"
+              class="rounded-lg bg-slate-900 px-5 py-2 text-sm font-semibold text-white transition hover:bg-slate-800">
+        Iniciar sesion
+      </button>
+    </div>
+  }
 </section>
-
-<ng-template #noCodes>
-  <p class="mt-3 text-sm text-slate-600">Todavia no sos parte de ningun equipo. Usa el boton de "Crear equipo" o un codigo compartido.</p>
-</ng-template>
-
-<ng-template #guestView>
-  <div class="rounded-2xl border border-slate-200 bg-white px-8 py-10 text-slate-700 shadow-sm">
-    <p class="mb-6 text-sm">Inicia sesion para crear tareas, administrar equipos o unirte mediante un codigo.</p>
-    <button type="button" (click)="openLogin()"
-            class="rounded-lg bg-slate-900 px-5 py-2 text-sm font-semibold text-white transition hover:bg-slate-800">
-      Iniciar sesion
-    </button>
-  </div>
-</ng-template>
-
-<!-- Modales flotantes -->
-<div *ngIf="activePanel === 'task'" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
-  <div class="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-    <button type="button" class="absolute right-4 top-4 text-xs font-semibold uppercase text-slate-400 hover:text-slate-600"
-            (click)="closePanel()">Cerrar</button>
-    <h3 class="text-lg font-semibold text-slate-900">Crear tarea</h3>
-    <form [formGroup]="createTaskForm" (ngSubmit)="submitCreateTask()" class="mt-4 flex flex-col gap-4">
-      <label class="flex flex-col gap-1 text-sm text-slate-700">
-        Equipo
-        <select formControlName="teamId" class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-slate-500 focus:outline-none">
-          <option [ngValue]="null" disabled>Selecciona un equipo</option>
-          <option *ngFor="let option of (teamOptions$ | async) ?? []"
-                  [ngValue]="option.team.id">
-            {{ option.team.name }} ({{ option.team.code }})
-          </option>
-        </select>
-      </label>
-      <label class="flex flex-col gap-1 text-sm text-slate-700">
-        Titulo
-        <input type="text" formControlName="title"
-               class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-slate-500 focus:outline-none" />
-      </label>
-      <label class="flex flex-col gap-1 text-sm text-slate-700">
-        Descripcion
-        <textarea formControlName="description" rows="3"
-                  class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-slate-500 focus:outline-none"></textarea>
-      </label>
-      <label class="flex flex-col gap-1 text-sm text-slate-700">
-        Fecha límite
-        <input type="date" formControlName="dueOn"
-               class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-slate-500 focus:outline-none" />
-        <span class="text-xs text-slate-500">Opcional</span>
-      </label>
-      <div formArrayName="checklist" class="flex flex-col gap-3">
-        <div class="flex items-center justify-between">
-          <span class="text-sm font-semibold text-slate-700">Checklist</span>
-          <button type="button"
-                  class="text-xs font-semibold uppercase text-slate-500 hover:text-slate-700"
-                  (click)="addChecklistItem()">
-            Agregar ítem
-          </button>
-        </div>
-        @for (group of checklistControls; track trackChecklistItem($index); let i = $index) {
-          <div class="rounded-lg border border-slate-200 p-3" [formGroupName]="i">
-            <div class="flex items-start gap-3">
-              <input type="checkbox" formControlName="completed" class="mt-1 h-4 w-4 rounded border-slate-300">
-              <div class="flex-1 space-y-2">
-                <input type="text"
-                       formControlName="title"
-                       placeholder="Título del ítem"
-                       class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none" />
-                <textarea formControlName="description"
-                          rows="2"
-                          placeholder="Descripción (opcional)"
-                          class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"></textarea>
-              </div>
-              <button type="button"
-                      class="text-xs font-semibold uppercase text-rose-500 hover:text-rose-600"
-                      (click)="removeChecklistItem(i)">
-                Quitar
-              </button>
-            </div>
-          </div>
-        }
-      </div>
-      <ng-container *ngIf="teamMembers$ | async as teamMembers">
-        <label class="flex flex-col gap-1 text-sm text-slate-700">
-          Responsable
-          <select formControlName="assigneeId"
-                  class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-slate-500 focus:outline-none"
-                  [disabled]="teamMembers.length === 0">
-            <option [ngValue]="null">Sin responsable</option>
-            <option *ngFor="let member of teamMembers" [ngValue]="member.userId">
-              {{ member.fullName }} - {{ member.email }}
-            </option>
-          </select>
-          <span *ngIf="teamMembers.length === 0" class="text-xs text-slate-500">El equipo no tiene integrantes disponibles.</span>
-        </label>
-      </ng-container>
-      <label class="flex flex-col gap-1 text-sm text-slate-700">
-        Estado inicial
-        <select formControlName="status"
-                class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-slate-500 focus:outline-none">
-          <option *ngFor="let status of taskStatuses" [ngValue]="status">{{ status }}</option>
-        </select>
-      </label>
-      <button type="submit" [disabled]="isProcessing"
-              class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50">
-        {{ isProcessing ? 'Creando...' : 'Crear tarea' }}
-      </button>
-      <div *ngIf="feedback?.type === 'error'" class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
-        {{ feedback?.text }}
-      </div>
-    </form>
-  </div>
-</div>
-
-<div *ngIf="activePanel === 'team'" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
-  <div class="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-    <button type="button" class="absolute right-4 top-4 text-xs font-semibold uppercase text-slate-400 hover:text-slate-600"
-            (click)="closePanel()">Cerrar</button>
-    <h3 class="text-lg font-semibold text-slate-900">Crear equipo</h3>
-    <form [formGroup]="createTeamForm" (ngSubmit)="submitCreateTeam()" class="mt-4 flex flex-col gap-4">
-      <label class="flex flex-col gap-1 text-sm text-slate-700">
-        Nombre del equipo
-        <input type="text" formControlName="name"
-               class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-slate-500 focus:outline-none" />
-      </label>
-      <button type="submit" [disabled]="isProcessing"
-              class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50">
-        {{ isProcessing ? 'Creando...' : 'Crear equipo' }}
-      </button>
-      <div *ngIf="feedback?.type === 'error'" class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
-        {{ feedback?.text }}
-      </div>
-    </form>
-  </div>
-</div>
-
-<div *ngIf="activePanel === 'join'" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
-  <div class="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-    <button type="button" class="absolute right-4 top-4 text-xs font-semibold uppercase text-slate-400 hover:text-slate-600"
-            (click)="closePanel()">Cerrar</button>
-    <h3 class="text-lg font-semibold text-slate-900">Unirme a un equipo</h3>
-    <form [formGroup]="joinTeamForm" (ngSubmit)="submitJoinTeam()" class="mt-4 flex flex-col gap-4">
-      <label class="flex flex-col gap-1 text-sm text-slate-700">
-        Codigo del equipo
-        <input type="text" formControlName="code" maxlength="6"
-               class="uppercase rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-slate-500 focus:outline-none"
-               placeholder="ABC123" />
-      </label>
-      <button type="submit" [disabled]="isProcessing"
-              class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50">
-        {{ isProcessing ? 'Uniendo...' : 'Unirme al equipo' }}
-      </button>
-      <div *ngIf="feedback?.type === 'error'" class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
-        {{ feedback?.text }}
-      </div>
-    </form>
-  </div>
-</div>

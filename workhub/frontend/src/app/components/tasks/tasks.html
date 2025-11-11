@@ -1,60 +1,100 @@
-<div class="bg-white rounded-lg shadow-md">
-  <ul class="divide-y divide-gray-200">
+<section class="flex flex-1 flex-col gap-5 overflow-y-auto p-6">
+  <header class="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+    <div>
+      <h2 class="text-xl font-semibold text-slate-900">Mis Tareas</h2>
+      <p class="mt-1 text-sm text-slate-600">Gestiona todas las tareas de tus equipos.</p>
+    </div>
+
+    <div class="flex flex-wrap gap-3">
+      <button type="button"
+              class="group relative overflow-hidden rounded-lg bg-slate-900 px-6 py-3 text-white transition hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-50"
+              (click)="openPanel('task')">
+        <span class="relative z-10 text-sm font-semibold">CREAR TAREA</span>
+        <div class="absolute inset-0 bg-gradient-to-r from-sky-600 to-indigo-600 opacity-0 transition-opacity group-hover:opacity-20"></div>
+      </button>
+    </div>
+  </header>
+
+  @if (feedback) {
+    <div class="rounded-xl border p-4 text-sm"
+         [ngClass]="feedback.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700'">
+      {{ feedback?.text }}
+    </div>
+  }
+
+  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
     @for (task of tareas; track task.id) {
-      <li class="p-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between hover:bg-gray-50">
-        <div class="min-w-0 space-y-2">
-          <span class="block text-sm font-semibold text-gray-600">
-            Tarea del equipo: {{ task.teamName ?? 'Equipo sin nombre' }}
+      <div class="flex flex-col bg-white  shadow-lg border border-gray-200 border-t-4 border-t-[#427A76] overflow-hidden transition-shadow duration-200 hover:shadow-xl">
+        <div class="p-4 border-b border-gray-200 bg-gray-50">
+          <span class="block text-sm font-semibold text-[#427A76]">
+            EQUIPO: {{ task.teamName ?? 'Equipo sin nombre' }}
           </span>
-          <p class="text-base font-medium text-gray-800">
-            Titulo: {{ task.title }}
+          <p class="text-lg font-bold text-gray-900 mt-1">
+            {{ task.title }}
           </p>
-          <p class="text-sm text-gray-500">
-            Responsable:
-            <span class="font-medium text-gray-600">
-              {{ task.assigneeName ?? 'Sin responsable' }}
-              {{ task.assigneeEmail && task.assigneeName ? ' (' + task.assigneeEmail + ')' : '' }}
-            </span>
-          </p>
-          <p class="text-sm text-gray-500">
-            Vence:
-            <span class="font-medium text-gray-600">
-              {{ formatDueDate(task.dueOn) }}
-            </span>
-          </p>
+        </div>
+        <div class="p-4 flex-grow space-y-4">
+          <div class="space-y-2">
+            <p class="text-sm text-gray-600">
+              Responsable:
+              <span class="font-medium text-gray-800">
+                {{ task.assigneeName ?? 'Sin responsable' }}
+              </span>
+            </p>
+            <p class="text-sm text-gray-600">
+              Vence:
+              <span class="font-medium text-gray-800">
+                {{ formatDueDate(task.dueOn) }}
+              </span>
+            </p>
+          </div>
           @if (task.checklist.length) {
-            <div class="mt-2 space-y-2">
+            <div class="pt-4 border-t border-gray-100 space-y-3">
               <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Checklist</p>
               <ul class="space-y-2">
                 @for (item of task.checklist; track item.id; let idx = $index) {
-                  <li class="flex items-start gap-2">
+                  <li class="flex items-start gap-3 p-2 border rounded-lg"
+                      [ngClass]="{
+                        'bg-red-200 border-red-300': !item.completed,
+                        'bg-green-200 border-green-300': item.completed
+                      }">
                     <input type="checkbox"
-                           class="mt-1 h-4 w-4 rounded border-gray-300"
+                           class="mt-1 h-4 w-4 rounded border-gray-300 text-[#427A76] focus:ring-[#427A76] cursor-pointer"
                            [checked]="item.completed"
                            (change)="onChecklistToggle(task, idx)" />
-                    <div class="flex-1 space-y-1">
-                      <span class="text-sm font-medium text-gray-700"
-                            [class.line-through]="item.completed"
-                            [class.text-gray-400]="item.completed">
+                    <div class="flex-1 space-y-0.5">
+                      <span class="text-sm font-medium"
+                            [ngClass]="{
+                              'text-red-900': !item.completed,
+                              'text-green-900': item.completed
+                            }">
                         {{ item.title }}
                       </span>
                       @if (item.description) {
-                        <p class="text-xs text-gray-500"
-                           [class.line-through]="item.completed">
+                        <p class="text-xs"
+                           [ngClass]="{
+                              'text-red-700': !item.completed,
+                              'text-green-700': item.completed
+                            }">
                           {{ item.description }}
                         </p>
                       }
                     </div>
+                    @if (item.completed) {
+                      <span class="mt-1 text-xs font-semibold px-2 py-0.5  bg-green-300 text-green-900">
+                        COMPLETADO
+                      </span>
+                    }
                   </li>
                 }
               </ul>
             </div>
           }
         </div>
-        <div class="flex items-center gap-3">
-          <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Estado</span>
+        <div class="p-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between gap-4">
+          <span class="text-sm font-semibold uppercase tracking-wide text-gray-600">Estado</span>
           <select
-            class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-60"
+            class="w-auto rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-[#427A76] focus:outline-none focus:ring-1 focus:ring-[#427A76] disabled:opacity-60"
             [ngModel]="task.status"
             (ngModelChange)="onStatusChange(task, $event)"
           >
@@ -63,11 +103,118 @@
             }
           </select>
         </div>
-      </li>
+      </div>
     } @empty {
-      <li class="p-4 text-center text-gray-500">
+      <div class="col-span-full p-6 text-center text-gray-500 bg-white rounded-lg shadow-md border border-gray-200">
         No se encontraron tareas asignadas
-      </li>
+      </div>
     }
-  </ul>
-</div>
+  </div>
+</section>
+
+@if (activePanel === 'task') {
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
+    <div class="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+      <button type="button" class="absolute right-4 top-4 text-xs font-semibold uppercase text-slate-400 hover:text-slate-600"
+              (click)="closePanel()">Cerrar</button>
+      <h3 class="text-lg font-semibold text-slate-900">Crear tarea</h3>
+      <form [formGroup]="createTaskForm" (ngSubmit)="submitCreateTask()" class="mt-4 flex flex-col gap-4">
+        <label class="flex flex-col gap-1 text-sm text-slate-700">
+          Equipo
+          <select formControlName="teamId" class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-slate-500 focus:outline-none">
+            <option [ngValue]="null" disabled>Selecciona un equipo</option>
+            @for (option of (teamOptions$ | async) ?? []; track option.team.id) {
+              <option [ngValue]="option.team.id">
+                {{ option.team.name }} ({{ option.team.code }})
+              </option>
+            }
+          </select>
+        </label>
+        <label class="flex flex-col gap-1 text-sm text-slate-700">
+          Titulo
+          <input type="text" formControlName="title"
+                 class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-slate-500 focus:outline-none" />
+        </label>
+        <label class="flex flex-col gap-1 text-sm text-slate-700">
+          Descripcion
+          <textarea formControlName="description" rows="3"
+                    class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-slate-500 focus:outline-none"></textarea>
+        </label>
+        <label class="flex flex-col gap-1 text-sm text-slate-700">
+          Fecha límite
+          <input type="date" formControlName="dueOn"
+                 class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-slate-500 focus:outline-none" />
+          <span class="text-xs text-slate-500">Opcional</span>
+        </label>
+        <div formArrayName="checklist" class="flex flex-col gap-3">
+          <div class="flex items-center justify-between">
+            <span class="text-sm font-semibold text-slate-700">Checklist</span>
+            <button type="button"
+                    class="text-xs font-semibold uppercase text-slate-500 hover:text-slate-700"
+                    (click)="addChecklistItem()">
+              Agregar ítem
+            </button>
+          </div>
+          @for (group of checklistControls; track trackChecklistItem($index); let i = $index) {
+            <div class="rounded-lg border border-slate-200 p-3" [formGroupName]="i">
+              <div class="flex items-start gap-3">
+                <input type="checkbox" formControlName="completed" class="mt-1 h-4 w-4 rounded border-slate-300">
+                <div class="flex-1 space-y-2">
+                  <input type="text"
+                         formControlName="title"
+                         placeholder="Título del ítem"
+                         class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none" />
+                  <textarea formControlName="description"
+                            rows="2"
+                            placeholder="Descripción (opcional)"
+                            class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"></textarea>
+                </div>
+                <button type="button"
+                        class="text-xs font-semibold uppercase text-rose-500 hover:text-rose-600"
+                        (click)="removeChecklistItem(i)">
+                  Quitar
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+        @if (teamMembers$ | async; as teamMembers) {
+          <label class="flex flex-col gap-1 text-sm text-slate-700">
+            Responsable
+            <select formControlName="assigneeId"
+                    class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-slate-500 focus:outline-none"
+                    [disabled]="teamMembers.length === 0">
+              <option [ngValue]="null">Sin responsable</option>
+              @for (member of teamMembers; track member.userId) {
+                <option [ngValue]="member.userId">
+                  {{ member.fullName }} - {{ member.email }}
+                </option>
+              }
+            </select>
+            @if (teamMembers.length === 0) {
+              <span class="text-xs text-slate-500">El equipo no tiene integrantes disponibles.</span>
+            }
+          </label>
+        }
+        <label class="flex flex-col gap-1 text-sm text-slate-700">
+          Estado inicial
+          <select formControlName="status"
+                  class="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:border-slate-500 focus:outline-none">
+            @for (status of taskStatuses; track status) {
+              <option [ngValue]="status">{{ status }}</option>
+            }
+          </select>
+        </label>
+        <button type="submit" [disabled]="isProcessing"
+                class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50">
+          {{ isProcessing ? 'Creando...' : 'Crear tarea' }}
+        </button>
+        @if (feedback?.type === 'error') {
+          <div class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+            {{ feedback?.text }}
+          </div>
+        }
+      </form>
+    </div>
+  </div>
+}

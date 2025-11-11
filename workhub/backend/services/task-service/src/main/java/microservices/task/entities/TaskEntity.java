@@ -65,8 +65,7 @@ public class TaskEntity {
     @Column(name = "due_on")
     private OffsetDateTime dueOn;
 
-    @Column(nullable = true)
-    private Date dueOn;
+
 
 
     @Builder.Default
