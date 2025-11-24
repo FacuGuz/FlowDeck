@@ -79,6 +79,9 @@ export class Tasks implements OnInit {
 
   protected readonly user$ = this.authService.currentUser$;
   private readonly refreshTeams$ = new BehaviorSubject<void>(undefined);
+
+  private readonly selectedTeamId$ = new BehaviorSubject<number | null>(null);
+
   private currentUser: User | null = null;
 
   protected activePanel: string | null = null;
@@ -183,12 +186,14 @@ export class Tasks implements OnInit {
     this.user$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((user) => {
+        console.debug('[Tasks] currentUser$ emission', user);
         this.currentUser = user;
       });
 
     this.createTaskForm.controls.teamId.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => {
+        console.debug('[Tasks] teamId changed, clearing assignee');
         this.createTaskForm.controls.assigneeId.setValue(null);
       });
 
@@ -199,11 +204,23 @@ export class Tasks implements OnInit {
     this.observeUserTasks();
   }
 
+  toggleTeamFilter(teamId: number): void {
+    const current = this.selectedTeamId$.value;
+    this.selectedTeamId$.next(current === teamId ? null : teamId);
+  }
+
+  isTeamSelected(teamId: number): boolean {
+    return this.selectedTeamId$.value === teamId;
+  }
+
   private observeUserTasks(): void {
-    this.authService.currentUser$
+    combineLatest([
+      this.authService.currentUser$,
+      this.selectedTeamId$
+    ])
       .pipe(
         takeUntilDestroyed(this.destroyRef),
-        switchMap((user) => {
+        switchMap(([user, selectedTeamId]) => {
           if (!user) {
             this.tareas = [];
             return of<TaskView[]>([]);
@@ -224,6 +241,12 @@ export class Tasks implements OnInit {
 
               return forkJoin(requests).pipe(
                 map((responses) => responses.flat()),
+                map((tasks) => {
+                  if (selectedTeamId) {
+                    return tasks.filter(t => t.teamId === selectedTeamId);
+                  }
+                  return tasks;
+                }),
                 switchMap((tasks) => this.enrichTasks(tasks, user))
               );
             })
@@ -374,6 +397,7 @@ export class Tasks implements OnInit {
   }
 
   openPanel(panel: string): void {
+    console.debug('[Tasks] openPanel requested', panel, 'user', this.currentUser);
     if (!this.ensureAuthenticated()) {
       return;
     }

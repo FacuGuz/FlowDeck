@@ -1,6 +1,5 @@
 import { Component, inject } from '@angular/core';
 import { AsyncPipe, NgIf } from '@angular/common';
-import { RouterOutlet } from '@angular/router';
 import { HeaderComponent } from './components/layout/header/header.component';
 import { NavbarComponent } from './components/layout/navbar/navbar.component';
 import { ContentComponent } from './components/layout/content/content.component';
@@ -13,7 +12,6 @@ import { ModalService } from './services/modal.service';
   selector: 'app-root',
   standalone: true,
   imports: [
-    RouterOutlet,
     HeaderComponent,
     NavbarComponent,
     FooterComponent,

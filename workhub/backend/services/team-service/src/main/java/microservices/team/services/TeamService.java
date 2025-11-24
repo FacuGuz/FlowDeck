@@ -35,10 +35,6 @@ public class TeamService {
 
     @Transactional
     public TeamDTO createTeam(TeamCreateDTO request) {
-        if (teamRepository.existsByName(request.name())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Team name already in use");
-        }
-
         String code = generateUniqueCode();
 
         TeamEntity entity = TeamEntity.builder()

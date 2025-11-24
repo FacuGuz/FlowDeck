@@ -24,3 +24,9 @@ spring:
     init:
       mode: always
 
+notifications:
+  base-url: ${NOTIFICATION_SERVICE_URL:http://localhost:8084}
+
+teams:
+  base-url: ${TEAM_SERVICE_URL:http://localhost:8082}
+

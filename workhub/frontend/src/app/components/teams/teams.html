@@ -18,16 +18,15 @@
       <button type="button"
               class="flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
               (click)="openPanel('join')">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5"><path d="M10 2a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 10 2Zm3.75 3.75a.75.75 0 0 0-1.06-1.06l-1.062 1.06a.75.75 0 0 0 1.061 1.062L13.75 5.75ZM6.31 5.75A.75.75 0 0 0 5.25 4.69L4.187 5.75a.75.75 0 0 0 1.061 1.062L6.31 5.75Zm9.44 2.04a.75.75 0 0 1 0 1.06l-1.06 1.06a.75.75 0 1 1-1.06-1.06l1.06-1.06a.75.75 0 0 1 1.06 0ZM3.75 8.81a.75.75 0 0 1 1.06 0l1.06 1.06a.75.75 0 0 1-1.06 1.06l-1.06-1.06a.75.75 0 0 1 0-1.06Zm8.25 8.25a.75.75 0 0 0-1.06-1.06l-1.062 1.06a.75.75 0 0 0 1.061 1.062L12 17.06Zm-6.31 0a.75.75 0 0 0 1.06 1.062l-1.062-1.06a.75.75 0 0 0-1.061 1.062L5.69 17.06Zm-.75-6.31a.75.75 0 0 1 0-1.06l1.06-1.06a.75.75 0 1 1 1.06 1.06l-1.06 1.06a.75.75 0 0 1-1.06 0Zm12 1.06a.75.75 0 0 0-1.06 0l-1.06 1.06a.75.75 0 1 0 1.06 1.06l1.06-1.06a.75.75 0 0 0 0-1.06ZM10 6a4 4 0 1 0 0 8a4 4 0 0 0 0-8Z" /></svg>
-        Unirme con Código
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" height="25" width="25" fill="none"><g id="SVGRepo_bgCarrier"  stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 12-3-3m3 3-3 3m3-3h-5.929a5 5 0 0 0-3.535 1.464l-1.072 1.072A5 5 0 0 1 6.93 16H3m0-8h4.343a4 4 0 0 1 2.829 1.172l1.656 1.656A4 4 0 0 0 14.657 12H18"></path> </g></svg>        Unirme con Código
       </button>
     </div>
   </header>
 
-  @if (feedback) {
+  @if (feedback; as fb) {
     <div class="rounded-xl border p-4 text-sm"
-         [ngClass]="feedback.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700'">
-      {{ feedback?.text }}
+         [ngClass]="fb.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700'">
+      {{ fb.text }}
     </div>
   }
 
@@ -183,10 +182,12 @@
                 class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50">
           {{ isProcessing ? 'Creando...' : 'Crear equipo' }}
         </button>
-        @if (feedback?.type === 'error') {
-          <div class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
-            {{ feedback?.text }}
-          </div>
+        @if (feedback; as fb) {
+          @if (fb.type === 'error') {
+            <div class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+              {{ fb.text }}
+            </div>
+          }
         }
       </form>
     </div>
@@ -210,10 +211,12 @@
                 class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50">
           {{ isProcessing ? 'Uniendo...' : 'Unirme al equipo' }}
         </button>
-        @if (feedback?.type === 'error') {
-          <div class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
-            {{ feedback?.text }}
-          </div>
+        @if (feedback; as fb) {
+          @if (fb.type === 'error') {
+            <div class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+              {{ fb.text }}
+            </div>
+          }
         }
       </form>
     </div>

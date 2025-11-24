@@ -1,7 +1,7 @@
 ﻿import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { NgFor, NgIf } from '@angular/common';
+import { NgIf } from '@angular/common';
 import { AuthService } from '../../../services/auth.service';
 import { toFriendlyError } from '../../../services/error.utils';
 import { ModalService } from '../../../services/modal.service';
@@ -10,7 +10,7 @@ import { UserRole } from '../../../enums/user-role';
 @Component({
   selector: 'app-register',
   standalone: true,
-  imports: [ReactiveFormsModule, NgIf, NgFor],
+  imports: [ReactiveFormsModule, NgIf],
   templateUrl: './register.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

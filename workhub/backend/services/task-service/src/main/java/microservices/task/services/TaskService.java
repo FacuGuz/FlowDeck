@@ -3,16 +3,20 @@ package microservices.task.services;
 import java.util.ArrayList;
 import java.util.List;
 
+import microservices.task.clients.NotificationClient;
+import microservices.task.clients.TeamDirectoryClient;
 import microservices.task.dto.TaskAssignDTO;
-import microservices.task.dto.TaskCreateDTO;
-import microservices.task.dto.TaskDTO;
 import microservices.task.dto.TaskChecklistItemCreateDTO;
 import microservices.task.dto.TaskChecklistItemDTO;
+import microservices.task.dto.TaskCreateDTO;
+import microservices.task.dto.TaskDTO;
 import microservices.task.dto.TaskUpdateDTO;
 import microservices.task.entities.TaskChecklistItemEntity;
 import microservices.task.entities.TaskEntity;
 import microservices.task.entities.TaskStatus;
 import microservices.task.repositories.TaskRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,10 +25,18 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class TaskService {
 
-    private final TaskRepository taskRepository;
+    private static final Logger log = LoggerFactory.getLogger(TaskService.class);
 
-    public TaskService(TaskRepository taskRepository) {
+    private final TaskRepository taskRepository;
+    private final NotificationClient notificationClient;
+    private final TeamDirectoryClient teamDirectoryClient;
+
+    public TaskService(TaskRepository taskRepository,
+                       NotificationClient notificationClient,
+                       TeamDirectoryClient teamDirectoryClient) {
         this.taskRepository = taskRepository;
+        this.notificationClient = notificationClient;
+        this.teamDirectoryClient = teamDirectoryClient;
     }
 
     @Transactional
@@ -41,7 +53,9 @@ public class TaskService {
 
         applyChecklist(entity, request.checklist());
 
-        return map(taskRepository.save(entity));
+        TaskEntity saved = taskRepository.save(entity);
+        notifyAssignee(saved);
+        return map(saved);
     }
 
     @Transactional(readOnly = true)
@@ -159,5 +173,24 @@ public class TaskService {
         List<TaskChecklistItemEntity> currentItems = new ArrayList<>(entity.getChecklistItems());
         currentItems.forEach(entity::removeChecklistItem);
         applyChecklist(entity, checklist);
+    }
+
+    private void notifyAssignee(TaskEntity task) {
+        Long assigneeId = task.getAssigneeId();
+        if (assigneeId == null) {
+            return;
+        }
+        String teamName = teamDirectoryClient.getTeamName(task.getTeamId())
+                .orElse("Equipo " + task.getTeamId());
+
+        NotificationClient.TaskCreatedNotificationPayload payload =
+                new NotificationClient.TaskCreatedNotificationPayload(
+                        task.getId(),
+                        assigneeId,
+                        task.getTitle(),
+                        teamName
+                );
+        log.debug("Sending notification for task {} to user {}", task.getId(), assigneeId);
+        notificationClient.sendTaskCreated(payload);
     }
 }
