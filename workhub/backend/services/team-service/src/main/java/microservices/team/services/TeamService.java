@@ -1,4 +1,4 @@
-package microservices.team.services;
+﻿package microservices.team.services;
 
 import java.util.List;
 import java.util.Locale;
@@ -106,9 +106,23 @@ public class TeamService {
         teamMemberRepository.delete(member);
     }
 
+    @Transactional
+    public void removeMemberAsOwner(Long teamId, Long memberId) {
+        // Alias de removeMember para uso desde el owner
+        removeMember(teamId, memberId);
+    }
+
     private TeamEntity findTeamEntity(Long id) {
         return teamRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Team not found"));
+    }
+
+    @Transactional
+    public void deleteTeam(Long teamId) {
+        TeamEntity team = findTeamEntity(teamId);
+        // Se borran los miembros antes para cumplir con la FK y luego eliminar el equipo
+        teamMemberRepository.deleteAll(teamMemberRepository.findByTeam_Id(teamId));
+        teamRepository.delete(team);
     }
 
     private TeamDTO mapTeam(TeamEntity entity) {
@@ -150,3 +164,5 @@ public class TeamService {
         return builder.toString();
     }
 }
+
+

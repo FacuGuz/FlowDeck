@@ -67,4 +67,10 @@ public class TeamController {
     public void removeMember(@PathVariable Long teamId, @PathVariable Long memberId) {
         teamService.removeMember(teamId, memberId);
     }
+
+    @DeleteMapping("/{teamId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteTeam(@PathVariable Long teamId) {
+        teamService.deleteTeam(teamId);
+    }
 }

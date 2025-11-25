@@ -59,8 +59,34 @@ export class AuthService {
       .pipe(catchError((error) => throwError(() => toFriendlyError(error))));
   }
 
+  removeUserFromTeam(userId: number, teamId: number): Observable<void> {
+    return this.http
+      .delete<void>(endpointFor('auth', `/users/${userId}/teams/${teamId}`))
+      .pipe(catchError((error) => throwError(() => toFriendlyError(error))));
+  }
+
+  removeUserTeamById(userTeamId: number): Observable<void> {
+    return this.http
+      .delete<void>(endpointFor('auth', `/users/teams/${userTeamId}`))
+      .pipe(catchError((error) => throwError(() => toFriendlyError(error))));
+  }
+
   logout(): void {
     this.setCurrentUser(null);
+  }
+
+  // Marca el usuario como autenticado tras OAuth.
+  completeOAuthLogin(user: User): void {
+    this.setCurrentUser({ ...user, password: '' });
+  }
+
+  startGoogleOAuth(): Observable<string> {
+    return this.http
+      .get<{ authorizationUrl: string }>(endpointFor('auth', '/oauth/google/start'))
+      .pipe(
+        map((resp) => resp.authorizationUrl),
+        catchError((error) => throwError(() => toFriendlyError(error)))
+      );
   }
 
   private setCurrentUser(user: User | null): void {

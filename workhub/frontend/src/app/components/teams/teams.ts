@@ -1,19 +1,17 @@
-// src/app/components/teams/teams.component.ts
-
 import { ChangeDetectionStrategy, Component, DestroyRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import {
+  BehaviorSubject,
+  catchError,
+  combineLatest,
   forkJoin,
   map,
   of,
   shareReplay,
   startWith,
   switchMap,
-  catchError,
-  BehaviorSubject,
   firstValueFrom,
-  combineLatest
 } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
 import { TeamService } from '../../services/team.service';
@@ -23,11 +21,11 @@ import { ModalService } from '../../services/modal.service';
 import {
   ReactiveFormsModule,
   FormBuilder,
-  FormGroup,
   Validators,
 } from '@angular/forms';
-import { User } from '../../interfaces/user';
+import { User, UserTeam } from '../../interfaces/user';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { TeamRole } from '../../enums/team-role';
 
 interface TeamsViewState {
   status: 'idle' | 'loading' | 'ready' | 'error';
@@ -45,6 +43,11 @@ interface TeamMemberPreview {
 interface TeamCardView {
   team: Team;
   members: TeamMemberPreview[];
+  myTeamMemberId?: number;
+  myUserTeamId?: number;
+  membershipRole?: TeamRole;
+  leaderName?: string;
+  leaderInitials?: string;
 }
 
 @Component({
@@ -68,8 +71,9 @@ export class Teams {
 
   protected activePanel: string | null = null;
   protected isProcessing = false;
-  protected feedback: { type: 'success' | 'error'; text: string; } | undefined ;
+  protected feedback: { type: 'success' | 'error'; text: string; } | undefined;
   private currentUser: User | null = null;
+  protected currentUserId: number | undefined;
 
   private readonly refreshTeams$ = new BehaviorSubject<void>(undefined);
 
@@ -89,6 +93,7 @@ export class Teams {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((user) => {
         this.currentUser = user;
+        this.currentUserId = user?.id;
       });
   }
 
@@ -107,18 +112,63 @@ export class Teams {
             return of<TeamsViewState>({ status: 'ready', teams: [] });
           }
 
-          const requests = memberships.map((membership) => this.teamService.get(membership.teamId));
+          const requests = memberships.map((membership) =>
+            this.teamService.get(membership.teamId).pipe(
+              map((team) => ({ team, membership })),
+              catchError(() => {
+                // Limpia la relación en auth si el equipo ya no existe
+                if (membership.id != null) {
+                  this.authService.removeUserTeamById(membership.id).subscribe({ next: () => {}, error: () => {} });
+                }
+                return of(null);
+              })
+            )
+          );
           return forkJoin(requests).pipe(
-            switchMap((teams) => {
-              const sorted = teams.sort((a, b) => a.name.localeCompare(b.name));
-              const withMembers$ = sorted.map((team) =>
-                this.loadTeamMembers(team.id).pipe(
-                  map((members) => ({ team, members }))
+            switchMap((entries) => {
+              const valid = entries.filter((e): e is { team: Team; membership: UserTeam } => e != null);
+              if (!valid.length) {
+                return of<TeamsViewState>({ status: 'ready', teams: [] });
+              }
+              const sorted = valid
+                .map((entry) => entry)
+                .sort((a, b) => a.team.name.localeCompare(b.team.name));
+
+              const withMembers$ = sorted.map((entry) =>
+                this.loadTeamMembers(entry.team.id).pipe(
+                  switchMap((members) => {
+                    const myMembership = members.find((m) => m.userId === user.id);
+
+                    // Si ya no es miembro, borra la relación en auth y no muestra la card
+                    if (!myMembership) {
+                      if (entry.membership.id != null) {
+                        this.authService
+                          .removeUserTeamById(entry.membership.id)
+                          .subscribe({ next: () => {}, error: () => {} });
+                      }
+                      return of<TeamCardView | null>(null);
+                    }
+
+                    const leaderName = members.at(0)?.fullName ?? 'No asignado';
+                    const leaderInitials = members.at(0)?.initials ?? '?';
+                    return of<TeamCardView>({
+                      team: entry.team,
+                      members,
+                      myTeamMemberId: myMembership.memberId,
+                      myUserTeamId: entry.membership.id,
+                      membershipRole: entry.membership.role,
+                      leaderName,
+                      leaderInitials,
+                    });
+                  })
                 )
               );
 
               return forkJoin(withMembers$).pipe(
-                map((entries) => ({ status: 'ready', teams: entries } satisfies TeamsViewState))
+                map((entries) => {
+                  const cards = entries.filter((e): e is TeamCardView => e !== null);
+                  return { status: 'ready', teams: cards } satisfies TeamsViewState;
+                })
               );
             })
           );
@@ -150,6 +200,10 @@ export class Teams {
       next.add(teamId);
     }
     this.expandedTeams = next;
+  }
+
+  protected refresh(): void {
+    this.refreshTeams();
   }
 
   protected isTeamExpanded(teamId: number): boolean {
@@ -331,7 +385,7 @@ export class Teams {
 
   protected copyToClipboard(text: string): void {
     navigator.clipboard.writeText(text).then(() => {
-      this.setFeedback('success', `Código "${text}" copiado al portapapeles.`);
+      this.setFeedback('success', `Codigo "${text}" copiado al portapapeles.`);
 
       setTimeout(() => {
         if (this.feedback && this.feedback.text.includes(text)) {
@@ -340,8 +394,97 @@ export class Teams {
       }, 3000);
 
     }).catch(err => {
-      console.error('Error al copiar el código:', err);
-      this.setFeedback('error', 'No se pudo copiar el código.');
+      console.error('Error al copiar el codigo:', err);
+      this.setFeedback('error', 'No se pudo copiar el codigo.');
     });
+  }
+
+  protected async leaveTeam(card: TeamCardView): Promise<void> {
+    if (card.membershipRole === 'OWNER') {
+      this.setFeedback('error', 'El propietario no puede salir del equipo. Usa eliminar equipo si deseas cerrarlo.');
+      return;
+    }
+
+    const teamMemberId = card.myTeamMemberId;
+    const userTeamId = card.myUserTeamId;
+
+    if (!this.ensureAuthenticated()) {
+      return;
+    }
+
+    this.startProcessing();
+    try {
+      const userId = this.currentUser?.id;
+      await firstValueFrom(
+        forkJoin([
+          teamMemberId ? this.teamService.removeMember(card.team.id, teamMemberId) : of(null),
+          userTeamId != null
+            ? this.authService.removeUserTeamById(userTeamId)
+            : userId != null
+              ? this.authService.removeUserFromTeam(userId, card.team.id)
+              : of(null),
+        ])
+      );
+
+      this.setFeedback('success', `Saliste del equipo "${card.team.name}".`);
+      this.refreshTeams();
+    } catch (error) {
+      // No muestres error si es 404 después de borrar (el backend ya lo sacó)
+      const friendly = toFriendlyError(error);
+      if (friendly.message && !friendly.message.includes('404')) {
+        this.setFeedback('error', friendly.message);
+      }
+      this.refreshTeams();
+    } finally {
+      this.stopProcessing();
+    }
+  }
+
+  protected async deleteTeam(card: TeamCardView): Promise<void> {
+    if (card.membershipRole !== 'OWNER') {
+      this.setFeedback('error', 'Solo el propietario puede eliminar el equipo.');
+      return;
+    }
+
+    this.startProcessing();
+    try {
+      await firstValueFrom(this.teamService.deleteTeam(card.team.id));
+      this.setFeedback('success', `Equipo "${card.team.name}" eliminado.`);
+      this.refreshTeams();
+    } catch (error) {
+      const friendly = toFriendlyError(error);
+      if (friendly.message && !friendly.message.includes('404')) {
+        this.setFeedback('error', friendly.message);
+      }
+      this.refreshTeams();
+    } finally {
+      this.stopProcessing();
+    }
+  }
+
+  protected async removeMemberFromTeam(team: TeamCardView, member: TeamMemberPreview): Promise<void> {
+    if (team.membershipRole !== 'OWNER') {
+      this.setFeedback('error', 'Solo el propietario puede quitar miembros.');
+      return;
+    }
+    if (this.currentUserId === member.userId) {
+      this.setFeedback('error', 'No puedes quitarte a ti mismo desde aquí. Usa Salir/Eliminar equipo.');
+      return;
+    }
+
+    this.startProcessing();
+    try {
+      await firstValueFrom(this.teamService.removeMember(team.team.id, member.memberId));
+      this.setFeedback('success', `Se quitó a ${member.fullName} del equipo "${team.team.name}".`);
+      this.refreshTeams();
+    } catch (error) {
+      const friendly = toFriendlyError(error);
+      if (friendly.message && !friendly.message.includes('404')) {
+        this.setFeedback('error', friendly.message);
+      }
+      this.refreshTeams();
+    } finally {
+      this.stopProcessing();
+    }
   }
 }

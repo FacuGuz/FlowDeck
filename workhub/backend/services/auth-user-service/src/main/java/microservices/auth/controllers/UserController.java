@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.DeleteMapping;
 
 @RestController
 @RequestMapping("/users")
@@ -54,5 +55,17 @@ public class UserController {
     @ResponseStatus(HttpStatus.CREATED)
     public UserTeamDTO addUserToTeam(@PathVariable Long id, @Valid @RequestBody UserTeamCreateDTO request) {
         return userService.addUserToTeam(id, request);
+    }
+
+    @DeleteMapping("/{id}/teams/{teamId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void removeUserFromTeam(@PathVariable Long id, @PathVariable Long teamId) {
+        userService.removeUserFromTeam(id, teamId);
+    }
+
+    @DeleteMapping("/teams/{userTeamId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void removeUserTeamById(@PathVariable Long userTeamId) {
+        userService.removeUserTeamById(userTeamId);
     }
 }

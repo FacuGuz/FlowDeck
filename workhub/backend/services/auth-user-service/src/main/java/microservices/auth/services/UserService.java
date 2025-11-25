@@ -1,6 +1,7 @@
 package microservices.auth.services;
 
 import java.util.List;
+import java.util.Optional;
 import microservices.auth.dto.UserCreateDTO;
 import microservices.auth.dto.UserDTO;
 import microservices.auth.dto.UserTeamCreateDTO;
@@ -15,6 +16,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import microservices.auth.dto.GoogleProfileDTO;
+import java.util.UUID;
+import java.time.OffsetDateTime;
 
 @Service
 public class UserService {
@@ -46,6 +50,25 @@ public class UserService {
         return mapUser(saved);
     }
 
+    @Transactional
+    public UserDTO findOrCreateFromGoogle(GoogleProfileDTO profile, String refreshToken) {
+        return userRepository.findByEmailIgnoreCase(profile.email())
+                .map(existing -> updateGoogleDataIfNeeded(existing, profile, refreshToken))
+                .map(this::mapUser)
+                .orElseGet(() -> {
+                    UserEntity entity = UserEntity.builder()
+                            .email(profile.email())
+                            .fullName(profile.fullName())
+                            .role(UserRole.USER)
+                            .password(generatePlaceholderPassword())
+                            .googleSub(profile.sub())
+                            .googleRefreshToken(refreshToken)
+                            .createdAt(OffsetDateTime.now())
+                            .build();
+                    return mapUser(userRepository.save(entity));
+                });
+    }
+
     @Transactional(readOnly = true)
     public List<UserDTO> getUsers() {
         return userRepository.findAll()
@@ -57,6 +80,12 @@ public class UserService {
     @Transactional(readOnly = true)
     public UserDTO getUser(Long id) {
         return mapUser(findUserEntity(id));
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<UserDTO> findByEmailIgnoreCase(String email) {
+        return userRepository.findByEmailIgnoreCase(email)
+                .map(this::mapUser);
     }
 
     @Transactional(readOnly = true)
@@ -87,6 +116,21 @@ public class UserService {
         return mapUserTeam(userTeamRepository.save(relationship));
     }
 
+    @Transactional
+    public void removeUserFromTeam(Long userId, Long teamId) {
+        UserTeamEntity entity = userTeamRepository.findByUser_IdAndTeamId(userId, teamId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Membership not found"));
+        userTeamRepository.delete(entity);
+    }
+
+    @Transactional
+    public void removeUserTeamById(Long userTeamId) {
+        if (!userTeamRepository.existsById(userTeamId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Membership not found");
+        }
+        userTeamRepository.deleteById(userTeamId);
+    }
+
     private UserEntity findUserEntity(Long id) {
         return userRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
@@ -111,5 +155,26 @@ public class UserService {
                 entity.getRole(),
                 entity.getCreatedAt()
         );
+    }
+
+    private UserEntity updateGoogleDataIfNeeded(UserEntity entity, GoogleProfileDTO profile, String refreshToken) {
+        boolean dirty = false;
+        if (entity.getGoogleSub() == null && profile.sub() != null) {
+            entity.setGoogleSub(profile.sub());
+            dirty = true;
+        }
+        if (refreshToken != null && !refreshToken.isBlank()) {
+            entity.setGoogleRefreshToken(refreshToken);
+            dirty = true;
+        }
+        if (entity.getFullName() == null || entity.getFullName().isBlank()) {
+            entity.setFullName(profile.fullName());
+            dirty = true;
+        }
+        return dirty ? userRepository.save(entity) : entity;
+    }
+
+    private String generatePlaceholderPassword() {
+        return "oauth-" + UUID.randomUUID();
     }
 }

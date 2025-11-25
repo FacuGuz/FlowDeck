@@ -34,6 +34,7 @@ export class RegisterComponent {
 
   isSubmitting = false;
   errorMessage: string | null = null;
+  isOAuthRedirecting = false;
 
   submit(): void {
     if (this.form.invalid) {
@@ -63,5 +64,19 @@ export class RegisterComponent {
 
   openLogin(): void {
     this.modalService.open('login');
+  }
+
+  registerWithGoogle(): void {
+    this.isOAuthRedirecting = true;
+    this.errorMessage = null;
+    this.authService.startGoogleOAuth().subscribe({
+      next: (url) => {
+        window.location.href = url;
+      },
+      error: (error: unknown) => {
+        this.isOAuthRedirecting = false;
+        this.errorMessage = toFriendlyError(error).message;
+      },
+    });
   }
 }

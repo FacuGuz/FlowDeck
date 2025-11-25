@@ -1,0 +1,6 @@
+
+        teamMemberRepository.delete(member);
+    }
+
+    @Transactional
+    public void removeMemberAsOwner(Long teamId, Long memberId) {

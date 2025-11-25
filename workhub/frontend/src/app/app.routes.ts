@@ -5,6 +5,7 @@ import { Landing } from './components/landing/landing';
 import {ControlPanel} from './components/control-panel/control-panel';
 import {Tasks} from './components/tasks/tasks';
 import {Teams} from './components/teams/teams';
+import { OAuthCallbackComponent } from './components/auth/oauth-callback/oauth-callback.component';
 
 export const routes: Routes = [
   {
@@ -27,5 +28,8 @@ export const routes: Routes = [
   },
   {
     path: 'ajustes', component: Settings
+  },
+  {
+    path: 'oauth/google/callback', component: OAuthCallbackComponent
   }
 ];

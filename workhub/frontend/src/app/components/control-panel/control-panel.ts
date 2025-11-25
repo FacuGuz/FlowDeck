@@ -19,9 +19,11 @@ import {
 import { AuthService } from '../../services/auth.service';
 import { TeamService } from '../../services/team.service';
 import { ModalService } from '../../services/modal.service';
+import { TaskService } from '../../services/task.service';
 import { toFriendlyError } from '../../services/error.utils';
 import { Team } from '../../interfaces/team';
 import { User, UserTeam } from '../../interfaces/user';
+import { Task, TaskStatus } from '../../interfaces/task';
 import { TeamRole } from '../../enums/team-role';
 import { UserRole } from '../../enums/user-role';
 
@@ -29,6 +31,16 @@ interface TeamOption {
   team: Team;
   membershipRole: TeamRole;
 }
+
+type RecentTaskView = {
+  id: number;
+  title: string;
+  status: TaskStatus;
+  teamId: number;
+  teamName?: string;
+  activityType: 'created' | 'updated';
+  activityAt: string;
+};
 
 @Component({
   selector: 'app-control-panel',
@@ -41,12 +53,16 @@ interface TeamOption {
 export class ControlPanel {
   private readonly authService = inject(AuthService);
   private readonly teamService = inject(TeamService);
+  private readonly taskService = inject(TaskService);
   private readonly modalService = inject(ModalService);
   private readonly destroyRef = inject(DestroyRef);
 
   protected readonly user$ = this.authService.currentUser$;
 
   private readonly refreshTeams$ = new BehaviorSubject<void>(undefined);
+  private readonly relativeTimeFormatter = new Intl.RelativeTimeFormat('es', {
+    numeric: 'auto',
+  });
 
   protected readonly memberships$ = combineLatest([
     this.user$,
@@ -85,6 +101,43 @@ export class ControlPanel {
     shareReplay(1)
   );
 
+  protected readonly recentTasks$ = combineLatest([
+    this.user$,
+    this.memberships$,
+    this.teamOptions$,
+  ]).pipe(
+    switchMap(([user, memberships, teamOptions]) => {
+      if (!user || !memberships.length) {
+        return of<RecentTaskView[]>([]);
+      }
+
+      const teamNameMap = new Map(
+        teamOptions.map((option) => [option.team.id, option.team.name])
+      );
+
+      const requests = memberships.map((membership) =>
+        this.taskService.list({ teamId: membership.teamId })
+      );
+
+      return forkJoin(requests).pipe(
+        map((responses) => responses.flat()),
+        map((tasks) => this.filterRecentTasks(tasks)),
+        map((tasks) =>
+          tasks
+            .map((task) => this.toRecentTaskView(task, teamNameMap))
+            .sort(
+              (a, b) => Date.parse(b.activityAt) - Date.parse(a.activityAt)
+            )
+        ),
+        catchError((error) => {
+          this.handleError(error);
+          return of<RecentTaskView[]>([]);
+        })
+      );
+    }),
+    shareReplay(1)
+  );
+
   protected feedback: { type: 'success' | 'error'; text: string; } | undefined ;
   private currentUser: User | null = null;
 
@@ -102,6 +155,46 @@ export class ControlPanel {
 
   trackTeamOption(_: number, option: TeamOption): number {
     return option.team.id;
+  }
+
+  protected describeActivity(activity: 'created' | 'updated'): string {
+    return activity === 'updated' ? 'Actualizada' : 'Creada';
+  }
+
+  protected formatRelativeTime(iso: string): string {
+    const timestamp = Date.parse(iso);
+    if (Number.isNaN(timestamp)) {
+      return 'hace poco';
+    }
+
+    const diffMs = timestamp - Date.now();
+    const minutes = Math.round(diffMs / (1000 * 60));
+    if (Math.abs(minutes) < 60) {
+      return this.relativeTimeFormatter.format(minutes, 'minute');
+    }
+
+    const hours = Math.round(diffMs / (1000 * 60 * 60));
+    if (Math.abs(hours) < 24) {
+      return this.relativeTimeFormatter.format(hours, 'hour');
+    }
+
+    const days = Math.round(diffMs / (1000 * 60 * 60 * 24));
+    return this.relativeTimeFormatter.format(days, 'day');
+  }
+
+  protected translateStatus(status: TaskStatus): string {
+    switch (status) {
+      case 'TODO':
+        return 'Por hacer';
+      case 'IN_PROGRESS':
+        return 'En progreso';
+      case 'BLOCKED':
+        return 'Bloqueada';
+      case 'DONE':
+        return 'Completada';
+      default:
+        return status;
+    }
   }
 
   private setFeedback(type: 'success' | 'error', text: string): void {
@@ -134,5 +227,45 @@ export class ControlPanel {
       default:
         return 'Usuario';
     }
+  }
+
+  private filterRecentTasks(tasks: Task[]): Task[] {
+    const threshold = Date.now() - 24 * 60 * 60 * 1000;
+    return tasks.filter((task) => this.getLatestActivityDate(task) >= threshold);
+  }
+
+  private toRecentTaskView(
+    task: Task,
+    teamNames: Map<number, string>
+  ): RecentTaskView {
+    const latestActivity = this.getLatestActivityDate(task);
+    const createdAt = Date.parse(task.createdAt);
+    const updatedAt = Date.parse(task.updatedAt);
+    const hasUpdated =
+      !Number.isNaN(updatedAt) && updatedAt >= (Number.isNaN(createdAt) ? 0 : createdAt);
+
+    const activityAtIso =
+      latestActivity > 0
+        ? new Date(latestActivity).toISOString()
+        : task.updatedAt || task.createdAt;
+
+    return {
+      id: task.id,
+      title: task.title,
+      status: task.status,
+      teamId: task.teamId,
+      teamName: teamNames.get(task.teamId),
+      activityType: hasUpdated ? 'updated' : 'created',
+      activityAt: activityAtIso,
+    };
+  }
+
+  private getLatestActivityDate(task: Task): number {
+    const createdAt = Date.parse(task.createdAt);
+    const updatedAt = Date.parse(task.updatedAt);
+    return Math.max(
+      Number.isNaN(createdAt) ? 0 : createdAt,
+      Number.isNaN(updatedAt) ? 0 : updatedAt
+    );
   }
 }

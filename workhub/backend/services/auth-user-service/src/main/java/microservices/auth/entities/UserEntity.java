@@ -44,6 +44,12 @@ public class UserEntity {
     @Column(nullable = false, length = 120)
     private String password;
 
+    @Column(name = "google_sub", unique = true, length = 64)
+    private String googleSub;
+
+    @Column(name = "google_refresh_token", length = 400)
+    private String googleRefreshToken;
+
     @Column(nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 

@@ -26,6 +26,7 @@ export class LoginComponent {
 
   isSubmitting = false;
   errorMessage: string | null = null;
+  isOAuthRedirecting = false;
 
   async submit(): Promise<void> {
     if (this.form.invalid) {
@@ -58,5 +59,19 @@ export class LoginComponent {
 
   openRegister(): void {
     this.modalService.open('register');
+  }
+
+  loginWithGoogle(): void {
+    this.isOAuthRedirecting = true;
+    this.errorMessage = null;
+    this.authService.startGoogleOAuth().subscribe({
+      next: (url) => {
+        window.location.href = url;
+      },
+      error: (error: unknown) => {
+        this.isOAuthRedirecting = false;
+        this.errorMessage = toFriendlyError(error).message;
+      },
+    });
   }
 }

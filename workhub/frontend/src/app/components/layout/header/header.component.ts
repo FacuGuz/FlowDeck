@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, inject } from '@angular/core';
 import { AsyncPipe, NgForOf, NgIf } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
-import { BehaviorSubject, map, of, switchMap, take } from 'rxjs';
+import { BehaviorSubject, combineLatest, interval, map, of, startWith, switchMap, take } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AuthService } from '../../../services/auth.service';
 import { ModalService } from '../../../services/modal.service';
@@ -28,13 +28,14 @@ export class HeaderComponent {
   protected readonly unreadCount$ = this.notifications$.pipe(
     map((notifications) => notifications.filter((notification) => !notification.read).length)
   );
+  private readonly refreshTicker$ = interval(15000).pipe(startWith(0));
 
   protected isPanelOpen = false;
 
   constructor() {
-    this.currentUser$
+    combineLatest([this.currentUser$, this.refreshTicker$])
       .pipe(
-        switchMap((user) => {
+        switchMap(([user]) => {
           if (!user) {
             this.notificationsSubject.next([]);
             this.isPanelOpen = false;

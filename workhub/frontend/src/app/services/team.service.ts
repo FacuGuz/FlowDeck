@@ -49,4 +49,16 @@ export class TeamService {
       .post<TeamMember>(endpointFor('teams', `/teams/${teamId}/members`), payload)
       .pipe(catchError((error) => throwError(() => toFriendlyError(error))));
   }
+
+  removeMember(teamId: number, memberId: number): Observable<void> {
+    return this.http
+      .delete<void>(endpointFor('teams', `/teams/${teamId}/members/${memberId}`))
+      .pipe(catchError((error) => throwError(() => toFriendlyError(error))));
+  }
+
+  deleteTeam(teamId: number): Observable<void> {
+    return this.http
+      .delete<void>(endpointFor('teams', `/teams/${teamId}`))
+      .pipe(catchError((error) => throwError(() => toFriendlyError(error))));
+  }
 }
