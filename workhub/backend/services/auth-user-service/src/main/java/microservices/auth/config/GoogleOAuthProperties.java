@@ -13,6 +13,10 @@ public class GoogleOAuthProperties {
     private String tokenUri = "https://oauth2.googleapis.com/token";
     private String tokenInfoUri = "https://oauth2.googleapis.com/tokeninfo";
     private String frontendRedirect = "http://localhost:4200/oauth/google/callback";
+    // Config extra para Calendar
+    private String calendarRedirectUri = "http://localhost:8081/oauth/google/calendar/callback";
+    private String calendarScope = "https://www.googleapis.com/auth/calendar";
+    private String calendarFrontendRedirect = "http://localhost:4200/calendario";
 
     public String getClientId() {
         return clientId;
@@ -76,5 +80,29 @@ public class GoogleOAuthProperties {
 
     public void setFrontendRedirect(String frontendRedirect) {
         this.frontendRedirect = frontendRedirect;
+    }
+
+    public String getCalendarRedirectUri() {
+        return calendarRedirectUri;
+    }
+
+    public void setCalendarRedirectUri(String calendarRedirectUri) {
+        this.calendarRedirectUri = calendarRedirectUri;
+    }
+
+    public String getCalendarScope() {
+        return calendarScope;
+    }
+
+    public void setCalendarScope(String calendarScope) {
+        this.calendarScope = calendarScope;
+    }
+
+    public String getCalendarFrontendRedirect() {
+        return calendarFrontendRedirect;
+    }
+
+    public void setCalendarFrontendRedirect(String calendarFrontendRedirect) {
+        this.calendarFrontendRedirect = calendarFrontendRedirect;
     }
 }

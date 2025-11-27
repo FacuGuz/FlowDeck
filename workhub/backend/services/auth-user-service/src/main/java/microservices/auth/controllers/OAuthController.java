@@ -27,6 +27,11 @@ public class OAuthController {
         return googleOAuthService.start();
     }
 
+    @GetMapping("/calendar/start")
+    public OAuthStartResponse startCalendar(@RequestParam Long userId) {
+        return googleOAuthService.startCalendar(userId);
+    }
+
     @GetMapping("/callback")
     public ResponseEntity<?> callback(@RequestParam String code,
                                       @RequestParam String state,
@@ -52,5 +57,25 @@ public class OAuthController {
         }
 
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/calendar/callback")
+    public ResponseEntity<?> calendarCallback(@RequestParam String code,
+                                              @RequestParam String state,
+                                              @RequestParam(required = false) String redirect) {
+        googleOAuthService.handleCalendarCallback(code, state);
+        String target = (redirect != null && !redirect.isBlank())
+                ? redirect
+                : googleOAuthService.getCalendarFrontendRedirect();
+
+        if (target != null && !target.isBlank()) {
+            URI location = UriComponentsBuilder.fromUriString(target)
+                    .queryParam("calendarLinked", true)
+                    .build()
+                    .toUri();
+            return ResponseEntity.status(302).location(location).build();
+        }
+
+        return ResponseEntity.ok().build();
     }
 }

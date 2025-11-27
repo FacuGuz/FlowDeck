@@ -69,6 +69,27 @@ public class UserService {
                 });
     }
 
+    @Transactional
+    public void updateCalendarRefreshToken(Long userId, String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "refresh_token de Calendar requerido");
+        }
+        UserEntity entity = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no encontrado"));
+        entity.setGoogleCalendarRefreshToken(refreshToken);
+        userRepository.save(entity);
+    }
+
+    @Transactional(readOnly = true)
+    public String getCalendarRefreshToken(Long userId) {
+        UserEntity entity = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no encontrado"));
+        if (entity.getGoogleCalendarRefreshToken() == null || entity.getGoogleCalendarRefreshToken().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Usuario sin vincular Google Calendar");
+        }
+        return entity.getGoogleCalendarRefreshToken();
+    }
+
     @Transactional(readOnly = true)
     public List<UserDTO> getUsers() {
         return userRepository.findAll()

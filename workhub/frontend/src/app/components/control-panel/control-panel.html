@@ -1,8 +1,9 @@
-<section class="flex flex-1 flex-col gap-5 overflow-y-auto p-6">
+<section class="flex flex-1 flex-col gap-6 overflow-y-auto p-6 bg-slate-50/50">
+
   <header class="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
     <div>
-      <h2 class="text-xl font-semibold text-slate-900">Dashboard Personal</h2>
-      <p class="mt-1 text-sm text-slate-600">Resumen de tu actividad, tareas proximas y equipos.</p>
+      <h2 class="text-2xl font-bold text-slate-900 tracking-tight">Dashboard Personal</h2>
+      <p class="mt-1 text-sm text-slate-500">Resumen de tu actividad reciente y estado de tus equipos.</p>
     </div>
   </header>
 
@@ -10,39 +11,62 @@
     @if (teamOptions$ | async; as teamOptions) {
 
       @if (feedback; as fb) {
-        <div class="rounded-xl border p-4 text-sm"
+        <div class="rounded-xl border p-4 text-sm mb-4 shadow-sm"
              [ngClass]="fb.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700'">
           {{ fb.text }}
         </div>
       }
 
-      <div class="grid grow grid-cols-1 gap-5">
-        <article class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Actividad de tareas (ultimas 24 h)
-              </p>
-              <h3 class="mt-1 text-lg font-semibold text-slate-900">Creadas o actualizadas recientemente</h3>
-              <p class="text-sm text-slate-600">Equipos visibles: {{ teamOptions.length || 0 }}</p>
+      <div class="grid grow grid-cols-1 gap-6">
+
+        <article class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col">
+
+          <div class="border-b border-slate-100 bg-white p-5">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3">
+
+                <div>
+                  <h3 class="text-base font-bold text-slate-900">Actividad Reciente</h3>
+                  <p class="text-xs text-slate-500 font-medium uppercase tracking-wide">Últimas 24 horas</p>
+                </div>
+              </div>
+              <span class="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600 border border-slate-200">
+                {{ teamOptions.length || 0 }} Equipos activos
+              </span>
             </div>
           </div>
 
           @if (recentTasks$ | async; as recentTasks) {
             @if (recentTasks.length) {
-              <ul class="mt-4 divide-y divide-slate-100">
+              <ul class="divide-y divide-slate-100">
                 @for (task of recentTasks; track task.id) {
-                  <li class="py-3">
-                    <div class="flex items-start justify-between gap-3">
-                      <div class="min-w-0">
-                        <p class="text-sm font-semibold text-slate-900 line-clamp-1">{{ task.title }}</p>
-                        <p class="mt-1 text-xs text-slate-500">
-                          {{ task.teamName ?? 'Equipo sin nombre' }} &bull;
-                          {{ describeActivity(task.activityType) }} {{ formatRelativeTime(task.activityAt) }}
-                        </p>
+                  <li class="group transition duration-150 hover:bg-slate-50/80">
+                    <div class="flex items-center justify-between p-5 gap-4">
+
+                      <div class="flex items-start gap-4 overflow-hidden">
+                        <div class="mt-1.5 h-2.5 w-2.5 flex-shrink-0 rounded-full ring-2 ring-white"
+                             [ngClass]="getDotColor(task.status)"></div>
+
+                        <div class="min-w-0 flex-1">
+                          <p class="truncate text-sm font-semibold text-slate-900 group-hover:text-[#427A76] transition-colors cursor-pointer" title="{{ task.title }}">
+                            {{ task.title }}
+                          </p>
+
+                          <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
+                            <span class="font-medium text-slate-700 flex items-center gap-1 bg-slate-100 px-1.5 py-0.5 rounded">
+                              <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-slate-400" viewBox="0 0 20 20" fill="currentColor"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" /></svg>
+                              {{ task.teamName ?? 'Sin equipo' }}
+                            </span>
+                            <span class="text-slate-300">&bull;</span>
+                            <span>{{ describeActivity(task.activityType) }}</span>
+                            <span class="text-slate-300">&bull;</span>
+                            <span class="text-slate-400">{{ formatRelativeTime(task.activityAt) }}</span>
+                          </div>
+                        </div>
                       </div>
 
-                      <span class="whitespace-nowrap rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                      <span class="flex-shrink-0 inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium ring-1 ring-inset whitespace-nowrap"
+                            [ngClass]="getStatusClasses(task.status)">
                         {{ translateStatus(task.status) }}
                       </span>
                     </div>
@@ -50,8 +74,8 @@
                 }
               </ul>
             } @else {
-              <div class="mt-4 rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                No hay tareas nuevas ni actualizadas en las ultimas 24 horas.
+              <div class="flex flex-col items-center justify-center py-12 text-center">
+                <p class="mt-1 text-sm text-slate-500">No hay actividad reciente en las últimas 24 horas.</p>
               </div>
             }
           }
@@ -59,11 +83,13 @@
       </div>
     }
   } @else {
-    <div class="rounded-2xl border border-slate-200 bg-white px-8 py-10 text-slate-700 shadow-sm">
-      <p class="mb-6 text-sm">Inicia sesion para crear tareas, administrar equipos o unirte mediante un codigo.</p>
+    <div class="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white px-8 py-16 text-center shadow-sm">
+
+      <h3 class="text-xl font-bold text-slate-900">Bienvenido a FlowDeck</h3>
+      <p class="mt-2 mb-8 text-sm text-slate-500 max-w-sm mx-auto">Inicia sesión para comenzar a gestionar tus equipos y tareas.</p>
       <button type="button" (click)="openLogin()"
-              class="rounded-lg bg-slate-900 px-5 py-2 text-sm font-semibold text-white transition hover:bg-slate-800">
-        Iniciar sesion
+              class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 hover:shadow-lg hover:-translate-y-0.5">
+        Iniciar sesión
       </button>
     </div>
   }

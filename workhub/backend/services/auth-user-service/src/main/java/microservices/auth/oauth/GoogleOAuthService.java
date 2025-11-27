@@ -49,6 +49,10 @@ public class GoogleOAuthService {
         return properties.getFrontendRedirect();
     }
 
+    public String getCalendarFrontendRedirect() {
+        return properties.getCalendarFrontendRedirect();
+    }
+
     public OAuthStartResponse start() {
         ensureConfigured();
 
@@ -82,6 +86,7 @@ public class GoogleOAuthService {
         ensureConfigured();
 
         String codeVerifier = stateStore.consume(state)
+                .map(OAuthStateStore.StateData::codeVerifier)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid or expired state"));
 
         GoogleTokenResponse tokenResponse = exchangeCode(code, codeVerifier);
@@ -105,11 +110,15 @@ public class GoogleOAuthService {
     }
 
     private GoogleTokenResponse exchangeCode(String code, String codeVerifier) {
+        return exchangeCode(code, codeVerifier, properties.getRedirectUri());
+    }
+
+    private GoogleTokenResponse exchangeCode(String code, String codeVerifier, String redirectUri) {
         MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
         body.add("code", code);
         body.add("client_id", properties.getClientId());
         body.add("client_secret", properties.getClientSecret());
-        body.add("redirect_uri", properties.getRedirectUri());
+        body.add("redirect_uri", redirectUri);
         body.add("grant_type", "authorization_code");
         body.add("code_verifier", codeVerifier);
 
@@ -149,6 +158,64 @@ public class GoogleOAuthService {
     private void ensureConfigured() {
         if (isBlank(properties.getClientId()) || isBlank(properties.getClientSecret()) || isBlank(properties.getRedirectUri())) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Google OAuth not configured");
+        }
+    }
+
+    // -------- Calendar OAuth --------
+
+    public OAuthStartResponse startCalendar(Long userId) {
+        if (userId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "userId requerido para Calendar");
+        }
+        ensureCalendarConfigured();
+
+        String codeVerifier = randomCodeVerifier();
+        String state = stateStore.save(codeVerifier, userId.toString());
+        String codeChallenge = toCodeChallenge(codeVerifier);
+
+        String url = UriComponentsBuilder.fromHttpUrl(properties.getAuthorizationUri())
+                .queryParam("client_id", properties.getClientId())
+                .queryParam("redirect_uri", properties.getCalendarRedirectUri())
+                .queryParam("response_type", "code")
+                .queryParam("scope", properties.getCalendarScope())
+                .queryParam("access_type", "offline")
+                .queryParam("prompt", "consent")
+                .queryParam("include_granted_scopes", "true")
+                .queryParam("state", state)
+                .queryParam("code_challenge_method", "S256")
+                .queryParam("code_challenge", codeChallenge)
+                .toUriString();
+
+        return new OAuthStartResponse(url, state);
+    }
+
+    public void handleCalendarCallback(String code, String state) {
+        ensureCalendarConfigured();
+
+        OAuthStateStore.StateData data = stateStore.consume(state)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Estado invalido o expirado"));
+
+        Long userId = parseUserId(data.meta());
+        GoogleTokenResponse tokenResponse = exchangeCode(code, data.codeVerifier(), properties.getCalendarRedirectUri());
+
+        if (tokenResponse.refreshToken() == null || tokenResponse.refreshToken().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Google no devolvio refresh_token. Prueba con prompt=consent");
+        }
+
+        userService.updateCalendarRefreshToken(userId, tokenResponse.refreshToken());
+    }
+
+    private void ensureCalendarConfigured() {
+        if (isBlank(properties.getClientId()) || isBlank(properties.getClientSecret()) || isBlank(properties.getCalendarRedirectUri())) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Google Calendar OAuth no configurado");
+        }
+    }
+
+    private Long parseUserId(String meta) {
+        try {
+            return Long.parseLong(meta);
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "userId invalido en state");
         }
     }
 

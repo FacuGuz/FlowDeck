@@ -8,7 +8,10 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class OAuthStateStore {
 
-    private record StateEntry(String codeVerifier, Instant createdAt) {
+    public record StateData(String codeVerifier, String meta) {
+    }
+
+    private record StateEntry(String codeVerifier, String meta, Instant createdAt) {
     }
 
     private final Map<String, StateEntry> stateCache = new ConcurrentHashMap<>();
@@ -19,13 +22,17 @@ public class OAuthStateStore {
     }
 
     public String save(String codeVerifier) {
+        return save(codeVerifier, null);
+    }
+
+    public String save(String codeVerifier, String meta) {
         String state = UUID.randomUUID().toString();
-        stateCache.put(state, new StateEntry(codeVerifier, Instant.now()));
+        stateCache.put(state, new StateEntry(codeVerifier, meta, Instant.now()));
         evictExpired();
         return state;
     }
 
-    public Optional<String> consume(String state) {
+    public Optional<StateData> consume(String state) {
         if (state == null) {
             return Optional.empty();
         }
@@ -36,7 +43,7 @@ public class OAuthStateStore {
         if (entry.createdAt.plusSeconds(ttlSeconds).isBefore(Instant.now())) {
             return Optional.empty();
         }
-        return Optional.of(entry.codeVerifier);
+        return Optional.of(new StateData(entry.codeVerifier, entry.meta));
     }
 
     private void evictExpired() {

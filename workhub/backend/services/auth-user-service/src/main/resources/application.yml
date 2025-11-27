@@ -33,4 +33,6 @@ google:
     redirect-uri: ${GOOGLE_REDIRECT_URI:http://localhost:8081/oauth/google/callback}
     scope: ${GOOGLE_OAUTH_SCOPE:openid email profile}
     frontend-redirect: ${GOOGLE_OAUTH_FRONTEND_REDIRECT:http://localhost:4200/oauth/google/callback}
-
+    calendar-redirect-uri: ${GOOGLE_CALENDAR_REDIRECT_URI:http://localhost:8081/oauth/google/calendar/callback}
+    calendar-scope: ${GOOGLE_CALENDAR_SCOPE:https://www.googleapis.com/auth/calendar}
+    calendar-frontend-redirect: ${GOOGLE_CALENDAR_FRONTEND_REDIRECT:http://localhost:4200/calendario}

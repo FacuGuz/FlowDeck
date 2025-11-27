@@ -81,6 +81,7 @@ export class Tasks implements OnInit {
   private readonly refreshTeams$ = new BehaviorSubject<void>(undefined);
 
   private readonly selectedTeamId$ = new BehaviorSubject<number | null>(null);
+  private readonly viewMode$ = new BehaviorSubject<'mine' | 'team'>('mine');
 
   private currentUser: User | null = null;
 
@@ -213,14 +214,25 @@ export class Tasks implements OnInit {
     return this.selectedTeamId$.value === teamId;
   }
 
+  setViewMode(mode: 'mine' | 'team'): void {
+    if (this.viewMode$.value !== mode) {
+      this.viewMode$.next(mode);
+    }
+  }
+
+  isViewMode(mode: 'mine' | 'team'): boolean {
+    return this.viewMode$.value === mode;
+  }
+
   private observeUserTasks(): void {
     combineLatest([
       this.authService.currentUser$,
-      this.selectedTeamId$
+      this.selectedTeamId$,
+      this.viewMode$
     ])
       .pipe(
         takeUntilDestroyed(this.destroyRef),
-        switchMap(([user, selectedTeamId]) => {
+        switchMap(([user, selectedTeamId, viewMode]) => {
           if (!user) {
             this.tareas = [];
             return of<TaskView[]>([]);
@@ -232,21 +244,24 @@ export class Tasks implements OnInit {
                 return of<TaskView[]>([]);
               }
 
-              const requests = memberships.map((membership) =>
-                this.taskService.list({
-                  teamId: membership.teamId,
-                  assigneeId: user.id,
-                })
-              );
+              const teamsToUse = selectedTeamId
+                ? memberships.filter((m) => m.teamId === selectedTeamId)
+                : memberships;
+
+              if (!teamsToUse.length) {
+                return of<TaskView[]>([]);
+              }
+
+              const requests = teamsToUse.map((membership) => {
+                const params: { teamId: number; assigneeId?: number } = { teamId: membership.teamId };
+                if (viewMode === 'mine') {
+                  params.assigneeId = user.id;
+                }
+                return this.taskService.list(params);
+              });
 
               return forkJoin(requests).pipe(
                 map((responses) => responses.flat()),
-                map((tasks) => {
-                  if (selectedTeamId) {
-                    return tasks.filter(t => t.teamId === selectedTeamId);
-                  }
-                  return tasks;
-                }),
                 switchMap((tasks) => this.enrichTasks(tasks, user))
               );
             })
@@ -394,6 +409,48 @@ export class Tasks implements OnInit {
       default:
         return status;
     }
+  }
+
+  // --- NUEVAS FUNCIONES DE ESTILO VISUAL ---
+
+  // Obtiene el color del borde izquierdo de la tarjeta
+  protected getTaskBorderColor(status: string): string {
+    switch (status) {
+      case 'TODO': return 'border-l-slate-300'; // Gris
+      case 'IN_PROGRESS': return 'border-l-amber-400'; // Amarillo
+      case 'BLOCKED': return 'border-l-rose-500'; // Rojo
+      case 'DONE': return 'border-l-emerald-500'; // Verde
+      default: return 'border-l-slate-200';
+    }
+  }
+
+  // Calcula si la fecha está vencida para colorearla
+  protected getDueDateClass(dueOn: string | null): string {
+    if (!dueOn) return 'text-slate-500';
+
+    const due = new Date(dueOn);
+    const today = new Date();
+    // Reseteamos horas para comparar solo fechas
+    today.setHours(0, 0, 0, 0);
+
+    if (due < today) {
+      return 'text-rose-600 font-bold'; // Vencida
+    }
+    if (due.getTime() === today.getTime()) {
+      return 'text-amber-600 font-bold'; // Vence hoy
+    }
+    return 'text-slate-600'; // Futura
+  }
+
+  // Extrae las iniciales del nombre
+  protected getInitials(name: string | undefined): string {
+    if (!name) return '';
+    return name
+      .split(' ') // Divide por espacios
+      .map(n => n[0]) // Toma la primera letra de cada palabra
+      .slice(0, 2) // Solo toma las 2 primeras iniciales
+      .join('')
+      .toUpperCase();
   }
 
   openPanel(panel: string): void {

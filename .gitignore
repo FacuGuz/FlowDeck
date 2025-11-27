@@ -1,0 +1,14 @@
+.env
+.env.*
+.npmrc
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+backend/**/target/
+backend/**/.mvn/wrapper/maven-wrapper.jar
+.idea/
+.vscode/
+*.iml
+*.log
+logs/
+tmp/

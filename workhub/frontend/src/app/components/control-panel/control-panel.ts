@@ -197,6 +197,33 @@ export class ControlPanel {
     }
   }
 
+  // --- NUEVOS MÉTODOS VISUALES PARA EL HTML ---
+
+  // Obtiene las clases CSS para el badge de estado
+  protected getStatusClasses(status: TaskStatus): string {
+    switch (status) {
+      case 'DONE':
+        return 'bg-emerald-50 text-emerald-700 ring-emerald-600/20'; // Verde
+      case 'IN_PROGRESS':
+        return 'bg-blue-50 text-blue-700 ring-blue-700/10'; // Azul
+      case 'BLOCKED':
+        return 'bg-rose-50 text-rose-700 ring-rose-600/10'; // Rojo
+      case 'TODO':
+      default:
+        return 'bg-slate-50 text-slate-600 ring-slate-500/10'; // Gris
+    }
+  }
+
+  // Obtiene el color del punto decorativo
+  protected getDotColor(status: TaskStatus): string {
+    switch (status) {
+      case 'DONE': return 'bg-emerald-500';
+      case 'IN_PROGRESS': return 'bg-blue-500';
+      case 'BLOCKED': return 'bg-rose-500';
+      default: return 'bg-slate-300';
+    }
+  }
+
   private setFeedback(type: 'success' | 'error', text: string): void {
     this.feedback = { type, text };
   }

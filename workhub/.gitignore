@@ -1,0 +1,20 @@
+# Dependencias frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+
+# Build Java/Maven
+backend/**/target/
+backend/**/build/
+
+# Entornos y secretos
+.env
+**/.env
+
+# IDE y sistema
+.idea/
+*.iml
+*.log
+*.tmp
+*.swp
+

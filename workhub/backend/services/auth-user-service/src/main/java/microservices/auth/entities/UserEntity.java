@@ -50,6 +50,9 @@ public class UserEntity {
     @Column(name = "google_refresh_token", length = 400)
     private String googleRefreshToken;
 
+    @Column(name = "google_calendar_refresh_token", length = 400)
+    private String googleCalendarRefreshToken;
+
     @Column(nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 

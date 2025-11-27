@@ -1,264 +1,98 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, inject } from '@angular/core';
+import { Component, DestroyRef, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
-import {
-  BehaviorSubject,
-  catchError,
-  combineLatest,
-  forkJoin,
-  map,
-  of,
-  shareReplay,
-  startWith,
-  switchMap,
-  firstValueFrom,
-} from 'rxjs';
+import { RouterModule } from '@angular/router';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { catchError, combineLatest, firstValueFrom, forkJoin, map, of, switchMap, BehaviorSubject } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+
 import { AuthService } from '../../services/auth.service';
 import { TeamService } from '../../services/team.service';
-import { Team, TeamMember } from '../../interfaces/team';
-import { toFriendlyError } from '../../services/error.utils';
 import { ModalService } from '../../services/modal.service';
-import {
-  ReactiveFormsModule,
-  FormBuilder,
-  Validators,
-} from '@angular/forms';
-import { User, UserTeam } from '../../interfaces/user';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { toFriendlyError } from '../../services/error.utils';
+import { Team } from '../../interfaces/team';
 import { TeamRole } from '../../enums/team-role';
 
-interface TeamsViewState {
-  status: 'idle' | 'loading' | 'ready' | 'error';
-  teams: TeamCardView[];
-  error?: string;
-}
-
-interface TeamMemberPreview {
-  memberId: number;
-  userId: number;
-  fullName: string;
-  initials: string;
-}
-
-interface TeamCardView {
+interface TeamWithMembers {
   team: Team;
-  members: TeamMemberPreview[];
-  myTeamMemberId?: number;
-  myUserTeamId?: number;
-  membershipRole?: TeamRole;
+  membershipRole: TeamRole | null;
+  myTeamMemberId: number | null;
   leaderName?: string;
   leaderInitials?: string;
+  members: {
+    id: number;
+    userId: number;
+    fullName: string;
+    email: string;
+    initials: string;
+  }[];
+}
+
+interface TeamsState {
+  status: 'idle' | 'loading' | 'ready' | 'error';
+  teams: TeamWithMembers[];
+  error?: string;
 }
 
 @Component({
   selector: 'app-teams',
   standalone: true,
-  imports: [CommonModule, RouterLink, ReactiveFormsModule],
+  imports: [CommonModule, ReactiveFormsModule, RouterModule],
   templateUrl: './teams.html',
-  styleUrl: './teams.css',
-  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class Teams {
+export class Teams implements OnInit {
   private readonly authService = inject(AuthService);
   private readonly teamService = inject(TeamService);
   private readonly modalService = inject(ModalService);
   private readonly fb = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
 
-  protected expandedTeams = new Set<number>();
-
-  protected readonly user$ = this.authService.currentUser$;
-
-  protected activePanel: string | null = null;
-  protected isProcessing = false;
-  protected feedback: { type: 'success' | 'error'; text: string; } | undefined;
-  private currentUser: User | null = null;
-  protected currentUserId: number | undefined;
-
-  private readonly refreshTeams$ = new BehaviorSubject<void>(undefined);
-
-  readonly createTeamForm = this.fb.nonNullable.group({
-    name: ['', [Validators.required, Validators.maxLength(120)]],
-  });
-
-  readonly joinTeamForm = this.fb.nonNullable.group({
-    code: [
-      '',
-      [Validators.required, Validators.pattern(/^[A-Za-z]{3}\d{3}$/)],
-    ],
-  });
-
-  constructor() {
-    this.user$
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((user) => {
-        this.currentUser = user;
-        this.currentUserId = user?.id;
-      });
-  }
+  private readonly refreshSignal$ = new BehaviorSubject<void>(undefined);
 
   protected readonly state$ = combineLatest([
-    this.user$,
-    this.refreshTeams$,
+    this.authService.currentUser$,
+    this.refreshSignal$,
   ]).pipe(
     switchMap(([user]) => {
       if (!user) {
-        return of<TeamsViewState>({ status: 'idle', teams: [] });
+        return of<TeamsState>({ status: 'idle', teams: [] });
       }
-
-      return this.authService.getUserTeams(user.id).pipe(
-        switchMap((memberships) => {
-          if (!memberships.length) {
-            return of<TeamsViewState>({ status: 'ready', teams: [] });
-          }
-
-          const requests = memberships.map((membership) =>
-            this.teamService.get(membership.teamId).pipe(
-              map((team) => ({ team, membership })),
-              catchError(() => {
-                // Limpia la relación en auth si el equipo ya no existe
-                if (membership.id != null) {
-                  this.authService.removeUserTeamById(membership.id).subscribe({ next: () => {}, error: () => {} });
-                }
-                return of(null);
-              })
-            )
-          );
-          return forkJoin(requests).pipe(
-            switchMap((entries) => {
-              const valid = entries.filter((e): e is { team: Team; membership: UserTeam } => e != null);
-              if (!valid.length) {
-                return of<TeamsViewState>({ status: 'ready', teams: [] });
-              }
-              const sorted = valid
-                .map((entry) => entry)
-                .sort((a, b) => a.team.name.localeCompare(b.team.name));
-
-              const withMembers$ = sorted.map((entry) =>
-                this.loadTeamMembers(entry.team.id).pipe(
-                  switchMap((members) => {
-                    const myMembership = members.find((m) => m.userId === user.id);
-
-                    // Si ya no es miembro, borra la relación en auth y no muestra la card
-                    if (!myMembership) {
-                      if (entry.membership.id != null) {
-                        this.authService
-                          .removeUserTeamById(entry.membership.id)
-                          .subscribe({ next: () => {}, error: () => {} });
-                      }
-                      return of<TeamCardView | null>(null);
-                    }
-
-                    const leaderName = members.at(0)?.fullName ?? 'No asignado';
-                    const leaderInitials = members.at(0)?.initials ?? '?';
-                    return of<TeamCardView>({
-                      team: entry.team,
-                      members,
-                      myTeamMemberId: myMembership.memberId,
-                      myUserTeamId: entry.membership.id,
-                      membershipRole: entry.membership.role,
-                      leaderName,
-                      leaderInitials,
-                    });
-                  })
-                )
-              );
-
-              return forkJoin(withMembers$).pipe(
-                map((entries) => {
-                  const cards = entries.filter((e): e is TeamCardView => e !== null);
-                  return { status: 'ready', teams: cards } satisfies TeamsViewState;
-                })
-              );
-            })
-          );
-        }),
-        startWith<TeamsViewState>({ status: 'loading', teams: [] })
-      );
+      return this.loadTeams(user.id);
     }),
-    catchError((error) => of<TeamsViewState>({ status: 'error', teams: [], error: toFriendlyError(error).message })),
-    shareReplay(1)
+    takeUntilDestroyed()
   );
 
-  trackByTeamId(_: number, card: TeamCardView): number {
-    return card.team.id;
+  protected activePanel: 'team' | 'join' | null = null;
+  protected isProcessing = false;
+  protected feedback: { type: 'success' | 'error'; text: string } | null = null;
+  protected currentUserId: number | null = null;
+
+  protected expandedTeamIds = new Set<number>();
+
+  protected createTeamForm = this.fb.group({
+    name: ['', [Validators.required, Validators.maxLength(100)]],
+  });
+
+  protected joinTeamForm = this.fb.group({
+    code: ['', [Validators.required, Validators.minLength(6), Validators.maxLength(6)]],
+  });
+
+  ngOnInit() {
+    this.authService.currentUser$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((u) => {
+        this.currentUserId = u ? u.id : null;
+      });
   }
 
-  trackByIndex(index: number): number {
-    return index;
-  }
-
-  openLoginModal(): void {
-    this.modalService.open('login');
-  }
-
-  protected toggleTeamMembers(teamId: number): void {
-    const next = new Set(this.expandedTeams);
-    if (next.has(teamId)) {
-      next.delete(teamId);
-    } else {
-      next.add(teamId);
-    }
-    this.expandedTeams = next;
-  }
-
-  protected refresh(): void {
-    this.refreshTeams();
-  }
-
-  protected isTeamExpanded(teamId: number): boolean {
-    return this.expandedTeams.has(teamId);
-  }
-
-  private loadTeamMembers(teamId: number) {
-    return this.teamService.listMembers(teamId).pipe(
-      switchMap((members: TeamMember[]) => {
-        if (!members.length) {
-          return of<TeamMemberPreview[]>([]);
-        }
-
-        const requests = members.map((member) =>
-          this.authService.getUser(member.userId).pipe(
-            map((user) => ({
-              memberId: member.id,
-              userId: member.userId,
-              fullName: user.fullName,
-              initials: this.buildInitials(user.fullName),
-            }))
-          )
-        );
-
-        return forkJoin(requests);
-      }),
-      catchError(() => of<TeamMemberPreview[]>([]))
-    );
-  }
-
-  private buildInitials(fullName: string): string {
-    if (!fullName?.trim()) {
-      return '?';
-    }
-    const [firstWord] = fullName.trim().split(/\s+/);
-    return firstWord ? firstWord.charAt(0).toUpperCase() : '?';
+  refresh(): void {
+    this.refreshSignal$.next();
   }
 
   openPanel(panel: 'team' | 'join'): void {
-    if (!this.ensureAuthenticated()) {
-      return;
-    }
-
     this.activePanel = panel;
-    this.isProcessing = false;
-    this.feedback = undefined;
-
-    switch (panel) {
-      case 'team':
-        this.createTeamForm.reset({ name: '' });
-        break;
-      case 'join':
-        this.joinTeamForm.reset({ code: '' });
-        break;
-    }
+    this.feedback = null;
+    this.createTeamForm.reset();
+    this.joinTeamForm.reset();
   }
 
   closePanel(): void {
@@ -266,225 +100,195 @@ export class Teams {
     this.isProcessing = false;
   }
 
-  openLogin(): void {
+  openLoginModal(): void {
     this.modalService.open('login');
   }
 
-  async submitCreateTeam(): Promise<void> {
-    if (this.createTeamForm.invalid) {
-      this.createTeamForm.markAllAsTouched();
-      return;
-    }
-
-    const user = this.currentUser;
-    if (!user) {
-      this.openLogin();
-      return;
-    }
-
-    this.startProcessing();
-
-    try {
-      const { name } = this.createTeamForm.getRawValue();
-      const team = await firstValueFrom(this.teamService.create({ name }));
-
-      await firstValueFrom(
-        forkJoin([
-          this.teamService.addMember(team.id, { userId: user.id }),
-          this.authService.addUserToTeam(user.id, {
-            teamId: team.id,
-            role: 'OWNER',
-          }),
-        ])
-      );
-
-      this.createTeamForm.reset({ name: '' });
-      this.closePanel();
-      this.setFeedback(
-        'success',
-        `Equipo "${team.name}" creado. Codigo: ${team.code}`
-      );
-      this.refreshTeams();
-    } catch (error) {
-      this.handleError(error);
-    } finally {
-      this.stopProcessing();
+  toggleTeamExpansion(teamId: number): void {
+    if (this.expandedTeamIds.has(teamId)) {
+      this.expandedTeamIds.delete(teamId);
+    } else {
+      this.expandedTeamIds.add(teamId);
     }
   }
 
-  async submitJoinTeam(): Promise<void> {
-    if (this.joinTeamForm.invalid) {
-      this.joinTeamForm.markAllAsTouched();
-      return;
-    }
-
-    const user = this.currentUser;
-    if (!user) {
-      this.openLogin();
-      return;
-    }
-
-    this.startProcessing();
-
-    try {
-      const rawCode = this.joinTeamForm.getRawValue().code;
-      const code = rawCode.trim().toUpperCase();
-
-      const team = await firstValueFrom(this.teamService.findByCode(code));
-
-      await firstValueFrom(
-        forkJoin([
-          this.teamService.addMember(team.id, { userId: user.id }),
-          this.authService.addUserToTeam(user.id, {
-            teamId: team.id,
-            role: 'MEMBER',
-          }),
-        ])
-      );
-
-      this.joinTeamForm.reset({ code: '' });
-      this.closePanel();
-      this.setFeedback('success', `Te uniste al equipo "${team.name}".`);
-      this.refreshTeams();
-    } catch (error) {
-      this.handleError(error);
-    } finally {
-      this.stopProcessing();
-    }
+  isTeamExpanded(teamId: number): boolean {
+    return this.expandedTeamIds.has(teamId);
   }
 
-  private ensureAuthenticated(): boolean {
-    if (!this.currentUser) {
-      this.openLogin();
-      return false;
-    }
-    return true;
-  }
-
-  private refreshTeams(): void {
-    this.refreshTeams$.next(undefined);
-  }
-
-  private startProcessing(): void {
-    this.isProcessing = true;
-    this.feedback = undefined;
-  }
-
-  private stopProcessing(): void {
-    this.isProcessing = false;
-  }
-
-  private setFeedback(type: 'success' | 'error', text: string): void {
-    this.feedback = { type, text };
-  }
-
-  private handleError(error: unknown): void {
-    const friendly = toFriendlyError(error);
-    this.setFeedback('error', friendly.message);
-  }
-
-  protected copyToClipboard(text: string): void {
-    navigator.clipboard.writeText(text).then(() => {
-      this.setFeedback('success', `Codigo "${text}" copiado al portapapeles.`);
-
-      setTimeout(() => {
-        if (this.feedback && this.feedback.text.includes(text)) {
-          this.feedback = undefined;
-        }
-      }, 3000);
-
-    }).catch(err => {
-      console.error('Error al copiar el codigo:', err);
-      this.setFeedback('error', 'No se pudo copiar el codigo.');
+  copyToClipboard(code: string): void {
+    navigator.clipboard.writeText(code).then(() => {
+      this.setFeedback('success', 'Código copiado');
     });
   }
 
-  protected async leaveTeam(card: TeamCardView): Promise<void> {
-    if (card.membershipRole === 'OWNER') {
-      this.setFeedback('error', 'El propietario no puede salir del equipo. Usa eliminar equipo si deseas cerrarlo.');
-      return;
-    }
+  private loadTeams(userId: number) {
+    return this.authService.getUserTeams(userId).pipe(
+      switchMap((memberships) => {
+        if (memberships.length === 0) {
+          return of<TeamsState>({ status: 'ready', teams: [] });
+        }
 
-    const teamMemberId = card.myTeamMemberId;
-    const userTeamId = card.myUserTeamId;
+        const requests = memberships.map((m) =>
+          this.teamService.get(m.teamId).pipe(
+            switchMap((team) =>
+              this.teamService.listMembers(team.id).pipe(
+                switchMap((members) => {
+                  const memberRequests = members.map((mem) =>
+                    this.authService.getUser(mem.userId).pipe(
+                      map((u) => ({
+                        id: mem.id,
+                        userId: u.id,
+                        fullName: u.fullName,
+                        email: u.email,
+                        initials: this.getInitials(u.fullName),
+                      })),
+                      catchError(() => of(null))
+                    )
+                  );
+                  return forkJoin(memberRequests).pipe(
+                    map((userDetails) => ({
+                      team,
+                      members: userDetails.filter((u): u is NonNullable<typeof u> => u !== null),
+                    }))
+                  );
+                }),
+                map(({ team, members }) => {
+                  const myMembership = memberships.find((x) => x.teamId === team.id);
+                  const leader = members[0];
 
-    if (!this.ensureAuthenticated()) {
-      return;
-    }
+                  return {
+                    team,
+                    membershipRole: myMembership?.role ?? null,
+                    myTeamMemberId: members.find((mem) => mem.userId === userId)?.id ?? null,
+                    leaderName: leader?.fullName,
+                    leaderInitials: leader?.initials,
+                    members,
+                  } as TeamWithMembers;
+                })
+              )
+            ),
+            catchError(() => of(null))
+          )
+        );
 
-    this.startProcessing();
+        return forkJoin(requests).pipe(
+          map((results) => {
+            const validTeams = results.filter((t): t is TeamWithMembers => t !== null);
+            return { status: 'ready', teams: validTeams } as TeamsState;
+          })
+        );
+      }),
+      map((state) => ({ ...state, status: 'ready' } as TeamsState)),
+      catchError((err) =>
+        of<TeamsState>({
+          status: 'error',
+          teams: [],
+          error: toFriendlyError(err).message,
+        })
+      )
+    );
+  }
+
+  async submitCreateTeam() {
+    if (this.createTeamForm.invalid) return;
+
+    this.isProcessing = true;
+    this.feedback = null;
+    const { name } = this.createTeamForm.getRawValue();
+
     try {
-      const userId = this.currentUser?.id;
-      await firstValueFrom(
-        forkJoin([
-          teamMemberId ? this.teamService.removeMember(card.team.id, teamMemberId) : of(null),
-          userTeamId != null
-            ? this.authService.removeUserTeamById(userTeamId)
-            : userId != null
-              ? this.authService.removeUserFromTeam(userId, card.team.id)
-              : of(null),
-        ])
-      );
-
-      this.setFeedback('success', `Saliste del equipo "${card.team.name}".`);
-      this.refreshTeams();
-    } catch (error) {
-      // No muestres error si es 404 después de borrar (el backend ya lo sacó)
-      const friendly = toFriendlyError(error);
-      if (friendly.message && !friendly.message.includes('404')) {
-        this.setFeedback('error', friendly.message);
-      }
-      this.refreshTeams();
+      // 1. Create solo acepta 'name' en tu servicio.
+      await firstValueFrom(this.teamService.create({ name: name! }));
+      this.setFeedback('success', 'Equipo creado correctamente');
+      this.closePanel();
+      this.refresh();
+    } catch (err) {
+      this.setFeedback('error', toFriendlyError(err).message);
     } finally {
-      this.stopProcessing();
+      this.isProcessing = false;
     }
   }
 
-  protected async deleteTeam(card: TeamCardView): Promise<void> {
-    if (card.membershipRole !== 'OWNER') {
-      this.setFeedback('error', 'Solo el propietario puede eliminar el equipo.');
-      return;
-    }
+  async submitJoinTeam() {
+    if (this.joinTeamForm.invalid) return;
+    if (!this.currentUserId) return;
 
-    this.startProcessing();
+    this.isProcessing = true;
+    this.feedback = null;
+    const { code } = this.joinTeamForm.getRawValue();
+
     try {
-      await firstValueFrom(this.teamService.deleteTeam(card.team.id));
-      this.setFeedback('success', `Equipo "${card.team.name}" eliminado.`);
-      this.refreshTeams();
-    } catch (error) {
-      const friendly = toFriendlyError(error);
-      if (friendly.message && !friendly.message.includes('404')) {
-        this.setFeedback('error', friendly.message);
-      }
-      this.refreshTeams();
+      // 1. Buscar equipo por código (Tu servicio tiene findByCode)
+      const team = await firstValueFrom(this.teamService.findByCode(code!));
+
+      // 2. Agregar miembro al equipo encontrado (Tu servicio tiene addMember)
+      await firstValueFrom(this.teamService.addMember(team.id, { userId: this.currentUserId }));
+
+      this.setFeedback('success', 'Te has unido al equipo');
+      this.closePanel();
+      this.refresh();
+    } catch (err) {
+      this.setFeedback('error', toFriendlyError(err).message);
     } finally {
-      this.stopProcessing();
+      this.isProcessing = false;
     }
   }
 
-  protected async removeMemberFromTeam(team: TeamCardView, member: TeamMemberPreview): Promise<void> {
-    if (team.membershipRole !== 'OWNER') {
-      this.setFeedback('error', 'Solo el propietario puede quitar miembros.');
-      return;
-    }
-    if (this.currentUserId === member.userId) {
-      this.setFeedback('error', 'No puedes quitarte a ti mismo desde aquí. Usa Salir/Eliminar equipo.');
-      return;
-    }
+  async leaveTeam(view: TeamWithMembers) {
+    if (!view.myTeamMemberId) return;
+    if (!confirm(`¿Salir de ${view.team.name}?`)) return;
 
-    this.startProcessing();
+    this.isProcessing = true;
     try {
-      await firstValueFrom(this.teamService.removeMember(team.team.id, member.memberId));
-      this.setFeedback('success', `Se quitó a ${member.fullName} del equipo "${team.team.name}".`);
-      this.refreshTeams();
-    } catch (error) {
-      const friendly = toFriendlyError(error);
-      if (friendly.message && !friendly.message.includes('404')) {
-        this.setFeedback('error', friendly.message);
-      }
-      this.refreshTeams();
+      await firstValueFrom(this.teamService.removeMember(view.team.id, view.myTeamMemberId));
+      this.refresh();
+      this.setFeedback('success', 'Has salido del equipo');
+    } catch (err) {
+      this.setFeedback('error', toFriendlyError(err).message);
     } finally {
-      this.stopProcessing();
+      this.isProcessing = false;
     }
+  }
+
+  async deleteTeam(view: TeamWithMembers) {
+    if (!confirm(`¿ELIMINAR ${view.team.name}? Esta acción no se puede deshacer.`)) return;
+
+    this.isProcessing = true;
+    try {
+      // Usamos deleteTeam que SI existe en tu servicio
+      await firstValueFrom(this.teamService.deleteTeam(view.team.id));
+      this.refresh();
+      this.setFeedback('success', 'Equipo eliminado');
+    } catch (err) {
+      this.setFeedback('error', toFriendlyError(err).message);
+    } finally {
+      this.isProcessing = false;
+    }
+  }
+
+  async removeMemberFromTeam(view: TeamWithMembers, member: any) {
+    if (!confirm(`¿Expulsar a ${member.fullName}?`)) return;
+
+    this.isProcessing = true;
+    try {
+      await firstValueFrom(this.teamService.removeMember(view.team.id, member.id));
+      this.refresh();
+    } catch (err) {
+      alert(toFriendlyError(err).message);
+    } finally {
+      this.isProcessing = false;
+    }
+  }
+
+  private setFeedback(type: 'success' | 'error', text: string) {
+    this.feedback = { type, text };
+    if (type === 'success') {
+      setTimeout(() => (this.feedback = null), 4000);
+    }
+  }
+
+  private getInitials(name: string): string {
+    return name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase();
   }
 }

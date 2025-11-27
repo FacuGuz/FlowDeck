@@ -1,4 +1,4 @@
-package microservices.team.services;
+﻿package microservices.team.services;
 
 import java.util.List;
 import java.util.Locale;
@@ -164,6 +164,5 @@ public class TeamService {
         return builder.toString();
     }
 }
-
 
 
