@@ -2,7 +2,7 @@ import { Component, DestroyRef, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { catchError, combineLatest, firstValueFrom, forkJoin, map, of, switchMap, BehaviorSubject } from 'rxjs';
+import { catchError, firstValueFrom, forkJoin, map, of, BehaviorSubject, switchMap, from } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { AuthService } from '../../services/auth.service';
@@ -16,6 +16,7 @@ interface TeamWithMembers {
   team: Team;
   membershipRole: TeamRole | null;
   myTeamMemberId: number | null;
+  leaderUserId: number | null;
   leaderName?: string;
   leaderInitials?: string;
   members: {
@@ -24,6 +25,7 @@ interface TeamWithMembers {
     fullName: string;
     email: string;
     initials: string;
+    createdAt: string;
   }[];
 }
 
@@ -46,20 +48,7 @@ export class Teams implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
 
-  private readonly refreshSignal$ = new BehaviorSubject<void>(undefined);
-
-  protected readonly state$ = combineLatest([
-    this.authService.currentUser$,
-    this.refreshSignal$,
-  ]).pipe(
-    switchMap(([user]) => {
-      if (!user) {
-        return of<TeamsState>({ status: 'idle', teams: [] });
-      }
-      return this.loadTeams(user.id);
-    }),
-    takeUntilDestroyed()
-  );
+  protected state$ = new BehaviorSubject<TeamsState>({ status: 'idle', teams: [] });
 
   protected activePanel: 'team' | 'join' | null = null;
   protected isProcessing = false;
@@ -81,11 +70,18 @@ export class Teams implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((u) => {
         this.currentUserId = u ? u.id : null;
+        if (u) {
+          this.loadTeams(u.id);
+        } else {
+          this.state$.next({ status: 'idle', teams: [] });
+        }
       });
   }
 
   refresh(): void {
-    this.refreshSignal$.next();
+    if (this.currentUserId) {
+      this.loadTeams(this.currentUserId);
+    }
   }
 
   openPanel(panel: 'team' | 'join'): void {
@@ -123,71 +119,95 @@ export class Teams implements OnInit {
   }
 
   private loadTeams(userId: number) {
-    return this.authService.getUserTeams(userId).pipe(
-      switchMap((memberships) => {
+    if (this.state$.value.status !== 'ready') {
+      this.state$.next({ ...this.state$.value, status: 'loading' });
+    }
+
+    this.authService.getUserTeams(userId).pipe(
+      switchMap(memberships => {
         if (memberships.length === 0) {
-          return of<TeamsState>({ status: 'ready', teams: [] });
+          return of<TeamWithMembers[]>([]);
         }
 
-        const requests = memberships.map((m) =>
+        const teamRequests = memberships.map(m =>
           this.teamService.get(m.teamId).pipe(
-            switchMap((team) =>
-              this.teamService.listMembers(team.id).pipe(
-                switchMap((members) => {
-                  const memberRequests = members.map((mem) =>
-                    this.authService.getUser(mem.userId).pipe(
-                      map((u) => ({
-                        id: mem.id,
-                        userId: u.id,
-                        fullName: u.fullName,
-                        email: u.email,
-                        initials: this.getInitials(u.fullName),
-                      })),
-                      catchError(() => of(null))
-                    )
-                  );
-                  return forkJoin(memberRequests).pipe(
-                    map((userDetails) => ({
-                      team,
-                      members: userDetails.filter((u): u is NonNullable<typeof u> => u !== null),
-                    }))
-                  );
-                }),
-                map(({ team, members }) => {
-                  const myMembership = memberships.find((x) => x.teamId === team.id);
-                  const leader = members[0];
-
-                  return {
-                    team,
-                    membershipRole: myMembership?.role ?? null,
-                    myTeamMemberId: members.find((mem) => mem.userId === userId)?.id ?? null,
-                    leaderName: leader?.fullName,
-                    leaderInitials: leader?.initials,
-                    members,
-                  } as TeamWithMembers;
-                })
-              )
-            ),
-            catchError(() => of(null))
+            catchError(() => of(null)), // si da 404 o error, descartamos
+            map(team => ({ team, membership: m }))
           )
         );
 
-        return forkJoin(requests).pipe(
-          map((results) => {
-            const validTeams = results.filter((t): t is TeamWithMembers => t !== null);
-            return { status: 'ready', teams: validTeams } as TeamsState;
+        return forkJoin(teamRequests).pipe(
+          map(results => results.filter((r): r is { team: Team; membership: any } => r !== null && r.team !== null)),
+          switchMap(validResults => {
+            if (!validResults.length) return of<TeamWithMembers[]>([]);
+
+            const memberRequests = validResults.map(item =>
+              this.teamService.listMembers(item.team.id).pipe(
+                catchError(() => of([])),
+                map(members => ({ ...item, members }))
+              )
+            );
+
+            return forkJoin(memberRequests).pipe(
+              switchMap(fullTeams => {
+                if (!fullTeams.length) return of<TeamWithMembers[]>([]);
+
+                const finalViewPromises = fullTeams.map(async (ft) => {
+                const memberDetails = await Promise.all(ft.members.map(async (mem) => {
+                  try {
+                    const u = await firstValueFrom(this.authService.getUser(mem.userId));
+                    return {
+                      id: mem.id,
+                      userId: u.id,
+                      fullName: u.fullName,
+                      email: u.email,
+                      initials: this.getInitials(u.fullName),
+                      createdAt: mem.createdAt
+                    };
+                  } catch { return null; }
+                }));
+
+                const uniqueMembers = new Map<number, NonNullable<typeof memberDetails[number]>>();
+                memberDetails.forEach((m) => {
+                  if (m && !uniqueMembers.has(m.userId)) {
+                    uniqueMembers.set(m.userId, m);
+                  }
+                });
+
+                const validMembers = Array.from(uniqueMembers.values());
+                const orderedByJoinDate = [...validMembers].sort(
+                  (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+                );
+
+                const ownerMember =
+                  ft.membership.role === 'OWNER'
+                    ? orderedByJoinDate.find((m) => m.userId === ft.membership.userId) ?? orderedByJoinDate[0]
+                    : orderedByJoinDate[0];
+
+                  return {
+                    team: ft.team,
+                    membershipRole: ft.membership.role,
+                    myTeamMemberId: ft.members.find(m => m.userId === userId)?.id ?? null,
+                    leaderUserId: ownerMember?.userId ?? null,
+                    leaderName: ownerMember?.fullName,
+                    leaderInitials: ownerMember?.initials,
+                    members: validMembers
+                  } as TeamWithMembers;
+                });
+
+                return from(Promise.all(finalViewPromises));
+              })
+            );
           })
         );
       }),
-      map((state) => ({ ...state, status: 'ready' } as TeamsState)),
-      catchError((err) =>
-        of<TeamsState>({
-          status: 'error',
-          teams: [],
-          error: toFriendlyError(err).message,
-        })
-      )
-    );
+      catchError(err => {
+        this.state$.next({ status: 'error', teams: [], error: toFriendlyError(err).message });
+        return of<TeamWithMembers[]>([]);
+      })
+    ).subscribe(views => {
+      this.state$.next({ status: 'ready', teams: views as TeamWithMembers[] });
+    });
   }
 
   async submitCreateTeam() {
@@ -198,8 +218,25 @@ export class Teams implements OnInit {
     const { name } = this.createTeamForm.getRawValue();
 
     try {
-      // 1. Create solo acepta 'name' en tu servicio.
-      await firstValueFrom(this.teamService.create({ name: name! }));
+      const team = await firstValueFrom(this.teamService.create({ name: name! }));
+      if (this.currentUserId) {
+        // Nos aseguramos de que el creador quede registrado como miembro real del team-service.
+        await firstValueFrom(
+          this.teamService.addMember(team.id, { userId: this.currentUserId }).pipe(
+            catchError((err: any) => {
+              // Si ya existe la membresía (poco probable), ignoramos el 409.
+              if (err?.status === 409) return of(null);
+              throw err;
+            })
+          )
+        );
+        await firstValueFrom(
+          this.authService.addUserToTeam(this.currentUserId, {
+            teamId: team.id,
+            role: 'OWNER'
+          })
+        );
+      }
       this.setFeedback('success', 'Equipo creado correctamente');
       this.closePanel();
       this.refresh();
@@ -219,11 +256,18 @@ export class Teams implements OnInit {
     const { code } = this.joinTeamForm.getRawValue();
 
     try {
-      // 1. Buscar equipo por código (Tu servicio tiene findByCode)
       const team = await firstValueFrom(this.teamService.findByCode(code!));
+      const alreadyInTeam = this.state$.value.teams.some((t) => t.team.id === team.id);
+      if (alreadyInTeam) {
+        this.setFeedback('error', 'ya formas parte de este equipo');
+        this.isProcessing = false;
+        return;
+      }
 
-      // 2. Agregar miembro al equipo encontrado (Tu servicio tiene addMember)
       await firstValueFrom(this.teamService.addMember(team.id, { userId: this.currentUserId }));
+      await firstValueFrom(
+        this.authService.addUserToTeam(this.currentUserId, { teamId: team.id, role: 'MEMBER' })
+      );
 
       this.setFeedback('success', 'Te has unido al equipo');
       this.closePanel();
@@ -242,8 +286,17 @@ export class Teams implements OnInit {
     this.isProcessing = true;
     try {
       await firstValueFrom(this.teamService.removeMember(view.team.id, view.myTeamMemberId));
-      this.refresh();
+      if (this.currentUserId) {
+        await firstValueFrom(this.authService.removeUserFromTeam(this.currentUserId, view.team.id));
+      }
+
+      const currentTeams = this.state$.value.teams;
+      const filteredTeams = currentTeams.filter(t => t.team.id !== view.team.id);
+      this.state$.next({ ...this.state$.value, teams: filteredTeams });
+
       this.setFeedback('success', 'Has salido del equipo');
+      this.refresh();
+
     } catch (err) {
       this.setFeedback('error', toFriendlyError(err).message);
     } finally {
@@ -256,10 +309,14 @@ export class Teams implements OnInit {
 
     this.isProcessing = true;
     try {
-      // Usamos deleteTeam que SI existe en tu servicio
       await firstValueFrom(this.teamService.deleteTeam(view.team.id));
-      this.refresh();
+
+      const currentTeams = this.state$.value.teams;
+      const filteredTeams = currentTeams.filter(t => t.team.id !== view.team.id);
+      this.state$.next({ ...this.state$.value, teams: filteredTeams });
+
       this.setFeedback('success', 'Equipo eliminado');
+      this.refresh();
     } catch (err) {
       this.setFeedback('error', toFriendlyError(err).message);
     } finally {
