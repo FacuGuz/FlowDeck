@@ -53,6 +53,26 @@ export class AuthService {
       .pipe(catchError((error) => throwError(() => toFriendlyError(error))));
   }
 
+  updateUserProfile(userId: number, payload: { nickname?: string | null }): Observable<User> {
+    return this.http
+      .patch<User>(endpointFor('auth', `/users/${userId}/profile`), payload)
+      .pipe(
+        tap((user) => this.setCurrentUser(user)),
+        catchError((error) => throwError(() => toFriendlyError(error)))
+      );
+  }
+
+  uploadUserAvatar(userId: number, file: File): Observable<User> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http
+      .post<User>(endpointFor('auth', `/users/${userId}/avatar`), formData)
+      .pipe(
+        tap((user) => this.setCurrentUser(user)),
+        catchError((error) => throwError(() => toFriendlyError(error)))
+      );
+  }
+
   addUserToTeam(userId: number, payload: { teamId: number; role: TeamRole }): Observable<UserTeam> {
     return this.http
       .post<UserTeam>(endpointFor('auth', `/users/${userId}/teams`), payload)

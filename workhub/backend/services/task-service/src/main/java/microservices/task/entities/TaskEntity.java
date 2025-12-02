@@ -65,7 +65,15 @@ public class TaskEntity {
     @Column(name = "due_on")
     private OffsetDateTime dueOn;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "previous_status", length = 30)
+    private TaskStatus previousStatus;
 
+    @Column(name = "approval_requested_by")
+    private Long approvalRequestedBy;
+
+    @Column(name = "approval_requested_at")
+    private OffsetDateTime approvalRequestedAt;
 
 
     @Builder.Default

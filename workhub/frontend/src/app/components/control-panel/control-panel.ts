@@ -15,6 +15,7 @@ import {
   of,
   shareReplay,
   switchMap,
+  throwError,
 } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
 import { TeamService } from '../../services/team.service';
@@ -72,7 +73,12 @@ export class ControlPanel {
       if (!user) {
         return of<UserTeam[]>([]);
       }
-      return this.authService.getUserTeams(user.id);
+      return this.authService.getUserTeams(user.id).pipe(
+        catchError((error) => {
+          this.handleError(error);
+          return of<UserTeam[]>([]);
+        })
+      );
     }),
     shareReplay(1)
   );
@@ -88,14 +94,27 @@ export class ControlPanel {
           map((team) => ({
             team,
             membershipRole: membership.role,
-          }))
+          })),
+          catchError((error) => {
+            if (error && typeof error.message === 'string' && error.message.includes('404')) {
+              console.warn('[ControlPanel] Equipo no encontrado, se omitirá', membership.teamId);
+              return of<TeamOption | null>(null);
+            }
+            return throwError(() => error);
+          })
         )
       );
 
       return forkJoin(requests).pipe(
         map((entries) =>
-          entries.sort((a, b) => a.team.name.localeCompare(b.team.name))
-        )
+          entries
+            .filter((entry): entry is TeamOption => entry !== null)
+            .sort((a, b) => a.team.name.localeCompare(b.team.name))
+        ),
+        catchError((error) => {
+          this.handleError(error);
+          return of<TeamOption[]>([]);
+        })
       );
     }),
     shareReplay(1)
@@ -125,6 +144,7 @@ export class ControlPanel {
         map((tasks) =>
           tasks
             .map((task) => this.toRecentTaskView(task, teamNameMap))
+            .filter((view): view is RecentTaskView => view !== null)
             .sort(
               (a, b) => Date.parse(b.activityAt) - Date.parse(a.activityAt)
             )
@@ -190,6 +210,8 @@ export class ControlPanel {
         return 'En progreso';
       case 'BLOCKED':
         return 'Bloqueada';
+      case 'PENDING_APPROVAL':
+        return 'Pendiente de aprobación';
       case 'DONE':
         return 'Completada';
       default:
@@ -264,7 +286,10 @@ export class ControlPanel {
   private toRecentTaskView(
     task: Task,
     teamNames: Map<number, string>
-  ): RecentTaskView {
+  ): RecentTaskView | null {
+    if (!teamNames.has(task.teamId)) {
+      return null;
+    }
     const latestActivity = this.getLatestActivityDate(task);
     const createdAt = Date.parse(task.createdAt);
     const updatedAt = Date.parse(task.updatedAt);

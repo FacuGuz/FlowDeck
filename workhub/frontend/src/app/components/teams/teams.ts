@@ -18,11 +18,15 @@ interface TeamWithMembers {
   myTeamMemberId: number | null;
   leaderUserId: number | null;
   leaderName?: string;
+  leaderNickname?: string | null;
+  leaderAvatar?: string | null;
   leaderInitials?: string;
   members: {
     id: number;
     userId: number;
     fullName: string;
+    nickname?: string | null;
+    avatarUrl?: string | null;
     email: string;
     initials: string;
     createdAt: string;
@@ -160,8 +164,10 @@ export class Teams implements OnInit {
                       id: mem.id,
                       userId: u.id,
                       fullName: u.fullName,
+                      nickname: u.nickname ?? null,
+                      avatarUrl: u.avatarUrl ?? null,
                       email: u.email,
-                      initials: this.getInitials(u.fullName),
+                      initials: this.getInitials(u.nickname && u.nickname.trim().length ? u.nickname : u.fullName),
                       createdAt: mem.createdAt
                     };
                   } catch { return null; }
@@ -189,7 +195,9 @@ export class Teams implements OnInit {
                     membershipRole: ft.membership.role,
                     myTeamMemberId: ft.members.find(m => m.userId === userId)?.id ?? null,
                     leaderUserId: ownerMember?.userId ?? null,
-                    leaderName: ownerMember?.fullName,
+                    leaderName: ownerMember?.nickname && ownerMember.nickname.trim().length ? ownerMember.nickname : ownerMember?.fullName,
+                    leaderNickname: ownerMember?.nickname ?? null,
+                    leaderAvatar: ownerMember?.avatarUrl ?? null,
                     leaderInitials: ownerMember?.initials,
                     members: validMembers
                   } as TeamWithMembers;
@@ -347,5 +355,9 @@ export class Teams implements OnInit {
 
   private getInitials(name: string): string {
     return name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase();
+  }
+
+  protected getMemberDisplayName(member: { fullName: string; nickname?: string | null }): string {
+    return member.nickname && member.nickname.trim().length ? member.nickname.trim() : member.fullName;
   }
 }

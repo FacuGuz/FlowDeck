@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 import microservices.auth.dto.UserCreateDTO;
 import microservices.auth.dto.UserDTO;
+import microservices.auth.dto.UserProfileUpdateDTO;
 import microservices.auth.dto.UserTeamCreateDTO;
 import microservices.auth.dto.UserTeamDTO;
 import microservices.auth.entities.UserEntity;
@@ -118,6 +119,14 @@ public class UserService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public UserTeamDTO getUserTeamMembership(Long userId, Long teamId) {
+        findUserEntity(userId);
+        UserTeamEntity entity = userTeamRepository.findByUser_IdAndTeamId(userId, teamId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Membership not found"));
+        return mapUserTeam(entity);
+    }
+
     @Transactional
     public UserTeamDTO addUserToTeam(Long userId, UserTeamCreateDTO request) {
         UserEntity user = findUserEntity(userId);
@@ -152,6 +161,26 @@ public class UserService {
         userTeamRepository.deleteById(userTeamId);
     }
 
+    @Transactional
+    public UserDTO updateProfile(Long id, UserProfileUpdateDTO request) {
+        UserEntity entity = findUserEntity(id);
+        if (request.nickname() != null) {
+            String nickname = request.nickname().trim();
+            entity.setNickname(nickname.isEmpty() ? null : nickname);
+        }
+        return mapUser(userRepository.save(entity));
+    }
+
+    @Transactional
+    public UserDTO updateAvatar(Long id, String avatarUrl) {
+        if (avatarUrl == null || avatarUrl.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "avatarUrl requerido");
+        }
+        UserEntity entity = findUserEntity(id);
+        entity.setAvatarUrl(avatarUrl);
+        return mapUser(userRepository.save(entity));
+    }
+
     private UserEntity findUserEntity(Long id) {
         return userRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
@@ -162,6 +191,8 @@ public class UserService {
                 entity.getId(),
                 entity.getEmail(),
                 entity.getFullName(),
+                entity.getNickname(),
+                entity.getAvatarUrl(),
                 entity.getRole(),
                 entity.getPassword(),
                 entity.getCreatedAt()

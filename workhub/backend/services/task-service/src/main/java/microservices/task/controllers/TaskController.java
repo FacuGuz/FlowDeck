@@ -4,6 +4,7 @@ import java.util.List;
 
 import jakarta.validation.Valid;
 import microservices.task.dto.TaskAssignDTO;
+import microservices.task.dto.TaskCompletionRequest;
 import microservices.task.dto.TaskCreateDTO;
 import microservices.task.dto.TaskDTO;
 import microservices.task.dto.TaskUpdateDTO;
@@ -58,5 +59,10 @@ public class TaskController {
     @PostMapping("/{id}/assign")
     public TaskDTO assignTask(@PathVariable Long id, @Valid @RequestBody TaskAssignDTO request) {
         return taskService.assignTask(id, request);
+    }
+
+    @PostMapping("/{id}/complete")
+    public TaskDTO completeTask(@PathVariable Long id, @Valid @RequestBody TaskCompletionRequest request) {
+        return taskService.handleCompletion(id, request);
     }
 }

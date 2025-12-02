@@ -7,6 +7,7 @@ import { AuthService } from '../../../services/auth.service';
 import { ModalService } from '../../../services/modal.service';
 import { NotificationService } from '../../../services/notification.service';
 import { Notification } from '../../../interfaces/notification';
+import { User } from '../../../interfaces/user';
 
 @Component({
   selector: 'app-header',
@@ -83,5 +84,20 @@ export class HeaderComponent {
           )
         );
       });
+  }
+
+  protected getDisplayName(user: User): string {
+    return user.nickname && user.nickname.trim().length > 0 ? user.nickname.trim() : user.fullName;
+  }
+
+  protected getInitials(user: User): string {
+    const source = this.getDisplayName(user);
+    return source
+            .split(' ')
+            .filter(Boolean)
+            .map((part) => part[0])
+            .join('')
+            .slice(0, 2)
+            .toUpperCase() || user.fullName.slice(0, 1).toUpperCase();
   }
 }

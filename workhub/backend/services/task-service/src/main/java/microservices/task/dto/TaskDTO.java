@@ -16,6 +16,8 @@ public record TaskDTO(
         Long createdBy,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt,
+        Long approvalRequestedBy,
+        OffsetDateTime approvalRequestedAt,
         List<TaskChecklistItemDTO> checklist
 ) {
 }

@@ -1,1 +1,88 @@
-<p>settings works!</p>
+<div class="mx-auto w-full max-w-3xl space-y-6 p-4">
+  <header class="space-y-2">
+    <p class="text-sm font-semibold uppercase tracking-wide text-slate-500">Configuración</p>
+    <h1 class="text-2xl font-bold text-slate-900">Perfil y apariencia</h1>
+    <p class="text-sm text-slate-500">Personaliza cómo se muestra tu nombre y tu avatar dentro de FlowDeck.</p>
+  </header>
+
+  <ng-container *ngIf="currentUser as user; else loginPrompt">
+    <div *ngIf="feedback as fb" class="rounded-xl border px-4 py-3 text-sm"
+         [ngClass]="fb.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-rose-200 bg-rose-50 text-rose-700'">
+      {{ fb.text }}
+    </div>
+
+    <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-5">
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-center">
+        <div class="relative h-20 w-20">
+          <ng-container *ngIf="avatarPreview || user.avatarUrl; else avatarInitials">
+            <img [src]="avatarPreview || user.avatarUrl"
+                 alt="Avatar"
+                 class="h-20 w-20 rounded-full border-2 border-slate-200 object-cover" />
+          </ng-container>
+          <ng-template #avatarInitials>
+            <div class="flex h-20 w-20 items-center justify-center rounded-full bg-slate-900 text-2xl font-semibold text-white">
+              {{ user.fullName.slice(0, 1).toUpperCase() }}
+            </div>
+          </ng-template>
+        </div>
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Avatar</p>
+          <p class="text-lg font-bold text-slate-900">{{ user.fullName }}</p>
+          <p class="text-sm text-slate-500">Formatos admitidos: PNG, JPG o WEBP (máx. 2&nbsp;MB).</p>
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <input type="file"
+               accept="image/png,image/jpeg,image/webp"
+               class="text-sm"
+               (change)="onAvatarSelected($event)" />
+        <div class="flex gap-3">
+          <button type="button"
+                  class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  (click)="uploadAvatar()"
+                  [disabled]="!pendingAvatarFile || isUploadingAvatar">
+            {{ isUploadingAvatar ? 'Actualizando...' : 'Actualizar avatar' }}
+          </button>
+          <button type="button"
+                  class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  (click)="clearAvatarSelection()"
+                  [disabled]="!pendingAvatarFile">
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <form [formGroup]="profileForm" (ngSubmit)="saveProfile()" class="space-y-4">
+        <div class="space-y-2">
+          <label for="nickname" class="text-xs font-semibold uppercase tracking-wide text-slate-500">Apodo</label>
+          <input id="nickname"
+                 type="text"
+                 formControlName="nickname"
+                 class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                 placeholder="Ej: Quique" />
+          <p *ngIf="profileForm.controls.nickname.errors?.['maxlength']"
+             class="text-xs text-rose-500">
+            El apodo puede tener hasta 60 caracteres.
+          </p>
+        </div>
+        <div class="flex justify-end">
+          <button type="submit"
+                  class="rounded-lg bg-slate-900 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  [disabled]="profileForm.invalid || isSavingProfile">
+            {{ isSavingProfile ? 'Guardando...' : 'Guardar apodo' }}
+          </button>
+        </div>
+      </form>
+    </section>
+  </ng-container>
+
+  <ng-template #loginPrompt>
+    <div class="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-5 text-sm text-amber-800">
+      Debes iniciar sesión para personalizar tu perfil.
+      <button type="button" class="font-semibold underline" (click)="openLogin()">Iniciar sesión</button>
+    </div>
+  </ng-template>
+</div>

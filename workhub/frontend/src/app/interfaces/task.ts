@@ -1,4 +1,4 @@
-export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'BLOCKED' | 'DONE';
+export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'BLOCKED' | 'PENDING_APPROVAL' | 'DONE';
 
 export interface TaskChecklistItem {
   id: number;
@@ -22,6 +22,8 @@ export interface Task {
   createdBy: number;
   createdAt: string;
   updatedAt: string;
+  approvalRequestedBy: number | null;
+  approvalRequestedAt: string | null;
   checklist: TaskChecklistItem[];
 }
 
@@ -54,4 +56,12 @@ export interface TaskUpdateRequest {
 
 export interface TaskAssignRequest {
   assigneeId: number;
+  requestedBy: number;
+}
+
+export type TaskCompletionAction = 'REQUEST' | 'APPROVE' | 'REJECT';
+
+export interface TaskCompletionRequest {
+  userId: number;
+  action: TaskCompletionAction;
 }

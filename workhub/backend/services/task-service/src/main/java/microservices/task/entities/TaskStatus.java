@@ -4,5 +4,6 @@ public enum TaskStatus {
     TODO,
     IN_PROGRESS,
     BLOCKED,
+    PENDING_APPROVAL,
     DONE
 }

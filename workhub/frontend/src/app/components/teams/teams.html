@@ -95,7 +95,7 @@
                   <div class="p-5 pb-2">
                     <div class="flex justify-between items-start mb-4">
                       <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-900 text-lg font-bold text-white shadow-md shadow-slate-900/10">
-                        {{ teamView.team.name.slice(0,2).toUpperCase() }}
+                        {{ teamView.team.name.slice(0,2).toUpperCase()  }}
                       </div>
 
                       <div class="flex gap-1">
@@ -130,7 +130,8 @@
 
                     <div class="mt-2 inline-flex items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-mono text-slate-600 transition hover:border-slate-300 hover:bg-white cursor-pointer group/code"
                          (click)="copyToClipboard(teamView.team.code)"
-                         title="Click para copiar codigo">
+                         title="Click para copiar cn
+                         odigo">
                       <span class="font-semibold select-all">#{{ teamView.team.code }}</span>
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-3.5 h-3.5 text-slate-400 group-hover/code:text-[#427A76]">
                         <path d="M7 3.5A1.5 1.5 0 0 1 8.5 2h3.879a1.5 1.5 0 0 1 1.06.44l3.122 3.121a1.5 1.5 0 0 1 .44 1.06V16.5A1.5 1.5 0 0 1 15.5 18H8.5A1.5 1.5 0 0 1 7 16.5v-13Z" />
@@ -158,14 +159,22 @@
                     @if (!isTeamExpanded(teamView.team.id)) {
                       <div class="flex items-center -space-x-2 overflow-hidden py-1 min-h-[40px]">
                         <div class="relative inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-slate-800 text-xs font-bold text-white z-20" title="Lider: {{ teamView.leaderName }}">
-                          {{ teamView.leaderInitials ?? '?' }}
+                          @if (teamView.leaderAvatar) {
+                            <img [src]="teamView.leaderAvatar" alt="{{ teamView.leaderName }}" class="h-full w-full rounded-full object-cover" />
+                          } @else {
+                            {{ teamView.leaderInitials ?? '?' }}
+                          }
                         </div>
 
                         @for (member of teamView.members; track $index) {
                           @if(member.userId !== teamView.leaderUserId) {
-                            <div class="relative inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-slate-200 text-[10px] font-bold text-slate-600"
-                                 title="{{ member.fullName }}">
-                              {{ member.initials }}
+                        <div class="relative inline-flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-slate-200 text-[10px] font-bold text-slate-600 overflow-hidden"
+                                 title="{{ getMemberDisplayName(member) }}">
+                              @if (member.avatarUrl) {
+                                <img [src]="member.avatarUrl" alt="{{ member.fullName }}" class="h-full w-full object-cover" />
+                              } @else {
+                                {{ member.initials }}
+                              }
                             </div>
                           }
                         }
@@ -179,8 +188,12 @@
                       <ul class="mt-2 space-y-3 animate-fade-in border-t border-slate-100 pt-3">
                         <li class="flex items-center justify-between">
                           <div class="flex items-center gap-3">
-                            <div class="flex h-8 w-8 items-center justify-center rounded-full bg-slate-800 text-xs font-bold text-white">
-                              {{ teamView.leaderInitials }}
+                            <div class="flex h-8 w-8 items-center justify-center rounded-full bg-slate-800 text-xs font-bold text-white overflow-hidden">
+                              @if (teamView.leaderAvatar) {
+                                <img [src]="teamView.leaderAvatar" alt="{{ teamView.leaderName }}" class="h-full w-full object-cover" />
+                              } @else {
+                                {{ teamView.leaderInitials }}
+                              }
                             </div>
                             <div class="flex flex-col">
                               <span class="text-sm font-semibold text-slate-900">{{ teamView.leaderName }}</span>
@@ -193,11 +206,15 @@
                           @if (member.userId !== teamView.leaderUserId) {
                             <li class="flex items-center justify-between group/member">
                               <div class="flex items-center gap-3">
-                                <div class="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-xs font-bold text-slate-600">
-                                  {{ member.initials }}
+                            <div class="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-xs font-bold text-slate-600 overflow-hidden">
+                                  @if (member.avatarUrl) {
+                                    <img [src]="member.avatarUrl" alt="{{ member.fullName }}" class="h-full w-full object-cover" />
+                                  } @else {
+                                    {{ member.initials }}
+                                  }
                                 </div>
                                 <div class="flex flex-col">
-                                  <span class="text-sm font-medium text-slate-700">{{ member.fullName }}</span>
+                                  <span class="text-sm font-medium text-slate-700">{{ getMemberDisplayName(member) }}</span>
                                   <span class="text-[10px] text-slate-400 truncate max-w-[120px]" title="{{ member.email }}">{{ member.email }}</span>
                                 </div>
                               </div>

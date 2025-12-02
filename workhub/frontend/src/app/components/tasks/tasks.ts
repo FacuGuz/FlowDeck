@@ -10,19 +10,21 @@ import {
   Validators
 } from '@angular/forms';
 import {
+  BehaviorSubject,
+  Observable,
+  catchError,
+  combineLatest,
+  distinctUntilChanged,
+  firstValueFrom,
   forkJoin,
   map,
   of,
-  switchMap,
-  Observable,
-  firstValueFrom,
+  shareReplay,
   startWith,
-  distinctUntilChanged,
-  catchError,
-  combineLatest,
-  BehaviorSubject, shareReplay
+  switchMap,
+  tap,
 } from 'rxjs';
-import { Task, TaskStatus, TaskChecklistItem, TaskCreateRequest } from '../../interfaces/task';
+import { Task, TaskStatus, TaskChecklistItem, TaskCreateRequest, TaskCompletionAction } from '../../interfaces/task';
 import { User, UserTeam } from '../../interfaces/user';
 import { AuthService } from '../../services/auth.service';
 import { TaskService } from '../../services/task.service';
@@ -48,6 +50,8 @@ type TaskView = Task & {
   teamName?: string;
   assigneeName?: string;
   assigneeEmail?: string;
+  assigneeAvatar?: string | null;
+  membershipRole?: TeamRole | null;
 };
 
 @Component({
@@ -74,22 +78,30 @@ export class Tasks implements OnInit {
     'TODO',
     'IN_PROGRESS',
     'BLOCKED',
+    'PENDING_APPROVAL',
     'DONE',
   ];
 
   protected readonly user$ = this.authService.currentUser$;
   private readonly refreshTeams$ = new BehaviorSubject<void>(undefined);
+  private readonly refreshTasks$ = new BehaviorSubject<void>(undefined);
 
   private readonly selectedTeamId$ = new BehaviorSubject<number | null>(null);
   private readonly viewMode$ = new BehaviorSubject<'mine' | 'team'>('mine');
 
   private currentUser: User | null = null;
+  private readonly completionLoading = new Set<number>();
+  private readonly membershipRoleByTeam = new Map<number, TeamRole>();
+  private readonly ownerTeamIds = new Set<number>();
+  private readonly teamInfoById = new Map<number, Team>();
+
+  protected canCreateTasks = false;
 
   protected activePanel: string | null = null;
   protected isProcessing = false;
   protected feedback: { type: 'success' | 'error'; text: string; } | undefined ;
 
-  protected readonly memberships$ = combineLatest([
+  protected readonly memberships$: Observable<UserTeam[]> = combineLatest([
     this.user$,
     this.refreshTeams$,
   ]).pipe(
@@ -99,11 +111,12 @@ export class Tasks implements OnInit {
       }
       return this.authService.getUserTeams(user.id);
     }),
+    tap((memberships: UserTeam[]) => this.syncMembershipState(memberships)),
     shareReplay(1)
   );
 
-  protected readonly teamOptions$ = this.memberships$.pipe(
-    switchMap((memberships) => {
+  protected readonly teamOptions$: Observable<TeamOption[]> = this.memberships$.pipe(
+    switchMap((memberships: UserTeam[]) => {
       if (!memberships.length) {
         return of<TeamOption[]>([]);
       }
@@ -112,15 +125,33 @@ export class Tasks implements OnInit {
           map((team) => ({
             team,
             membershipRole: membership.role,
-          }))
+          })),
+          catchError((error) => {
+            if (error?.status === 404) {
+              console.warn('[Tasks] Equipo no encontrado, se omitirá', membership.teamId);
+              return of<TeamOption | null>(null);
+            }
+            return of<TeamOption | null>(null);
+          })
         )
       );
       return forkJoin(requests).pipe(
-        map((entries) =>
-          entries.sort((a, b) => a.team.name.localeCompare(b.team.name))
+        map((entries: Array<TeamOption | null>) =>
+          entries
+            .filter((entry): entry is TeamOption => entry !== null)
+            .sort((a, b) => a.team.name.localeCompare(b.team.name))
         )
       );
     }),
+    tap((options) => {
+      this.teamInfoById.clear();
+      options.forEach((option) => this.teamInfoById.set(option.team.id, option.team));
+    }),
+    shareReplay(1)
+  );
+
+  protected readonly ownerTeamOptions$: Observable<TeamOption[]> = this.teamOptions$.pipe(
+    map((options: TeamOption[]) => options.filter((option) => option.membershipRole === 'OWNER')),
     shareReplay(1)
   );
 
@@ -225,46 +256,44 @@ export class Tasks implements OnInit {
   }
 
   private observeUserTasks(): void {
-    combineLatest([
-      this.authService.currentUser$,
-      this.selectedTeamId$,
-      this.viewMode$
-    ])
+    combineLatest({
+      user: this.authService.currentUser$,
+      memberships: this.memberships$,
+      selectedTeamId: this.selectedTeamId$,
+      viewMode: this.viewMode$,
+      refreshTick: this.refreshTasks$,
+    })
       .pipe(
         takeUntilDestroyed(this.destroyRef),
-        switchMap(([user, selectedTeamId, viewMode]) => {
+        switchMap(({ user, memberships, selectedTeamId, viewMode }): Observable<TaskView[]> => {
           if (!user) {
             this.tareas = [];
             return of<TaskView[]>([]);
           }
 
-          return this.authService.getUserTeams(user.id).pipe(
-            switchMap((memberships) => {
-              if (!memberships.length) {
-                return of<TaskView[]>([]);
-              }
+          if (!memberships.length) {
+            return of<TaskView[]>([]);
+          }
 
-              const teamsToUse = selectedTeamId
-                ? memberships.filter((m) => m.teamId === selectedTeamId)
-                : memberships;
+          const teamsToUse = selectedTeamId
+            ? memberships.filter((m) => m.teamId === selectedTeamId)
+            : memberships;
 
-              if (!teamsToUse.length) {
-                return of<TaskView[]>([]);
-              }
+          if (!teamsToUse.length) {
+            return of<TaskView[]>([]);
+          }
 
-              const requests = teamsToUse.map((membership) => {
-                const params: { teamId: number; assigneeId?: number } = { teamId: membership.teamId };
-                if (viewMode === 'mine') {
-                  params.assigneeId = user.id;
-                }
-                return this.taskService.list(params);
-              });
+          const requests: Observable<Task[]>[] = teamsToUse.map((membership: UserTeam) => {
+            const params: { teamId: number; assigneeId?: number } = { teamId: membership.teamId };
+            if (viewMode === 'mine') {
+              params.assigneeId = user.id;
+            }
+            return this.taskService.list(params);
+          });
 
-              return forkJoin(requests).pipe(
-                map((responses) => responses.flat()),
-                switchMap((tasks) => this.enrichTasks(tasks, user))
-              );
-            })
+          return forkJoin(requests).pipe(
+            map((responses: Task[][]) => responses.flat()),
+            switchMap((tasks) => this.enrichTasks(tasks, user))
           );
         })
       )
@@ -284,11 +313,6 @@ export class Tasks implements OnInit {
       return of<TaskView[]>([]);
     }
 
-    const teamIds = Array.from(new Set(tasks.map((task) => task.teamId)));
-    const teamRequests = teamIds.map((teamId) =>
-      this.teamService.get(teamId).pipe(map((team) => [teamId, team.name] as [number, string]))
-    );
-
     const assigneeIds = Array.from(
       new Set(
         tasks
@@ -302,28 +326,33 @@ export class Tasks implements OnInit {
       .map((assigneeId) =>
         this.authService
           .getUser(assigneeId)
-          .pipe(map((user) => [user.id, { fullName: user.fullName, email: user.email }] as [number, { fullName: string; email: string }]))
+          .pipe(map((user) => [user.id, { fullName: this.getUserDisplayName(user), email: user.email, avatarUrl: user.avatarUrl ?? null }] as [number, { fullName: string; email: string; avatarUrl: string | null }]))
       );
 
-    const teamEntries$ = teamRequests.length ? forkJoin(teamRequests) : of([] as Array<[number, string]>);
     const assigneeEntries$ = assigneeRequests.length
       ? forkJoin(assigneeRequests)
-      : of([] as Array<[number, { fullName: string; email: string }]>);
+      : of([] as Array<[number, { fullName: string; email: string; avatarUrl: string | null }]>);
 
-    return forkJoin({ teamEntries: teamEntries$, assigneeEntries: assigneeEntries$ }).pipe(
-      map(({ teamEntries, assigneeEntries }) => {
-        const teamMap = new Map<number, string>(teamEntries);
-        const assigneeMap = new Map<number, { fullName: string; email: string }>(assigneeEntries);
+    return assigneeEntries$.pipe(
+      map((assigneeEntries) => {
+        const assigneeMap = new Map<number, { fullName: string; email: string; avatarUrl: string | null }>(assigneeEntries);
 
         if (currentUser) {
-          assigneeMap.set(currentUser.id, { fullName: currentUser.fullName, email: currentUser.email });
+          assigneeMap.set(currentUser.id, { fullName: this.getUserDisplayName(currentUser), email: currentUser.email, avatarUrl: currentUser.avatarUrl ?? null });
         }
+
+        const teamMap = new Map<number, string>();
+        this.teamInfoById.forEach((team, id) => {
+          teamMap.set(id, team.name);
+        });
 
         return tasks.map((task) => ({
           ...task,
           teamName: teamMap.get(task.teamId),
           assigneeName: task.assigneeId != null ? assigneeMap.get(task.assigneeId)?.fullName : undefined,
           assigneeEmail: task.assigneeId != null ? assigneeMap.get(task.assigneeId)?.email : undefined,
+          assigneeAvatar: task.assigneeId != null ? assigneeMap.get(task.assigneeId)?.avatarUrl ?? null : null,
+          membershipRole: this.membershipRoleByTeam.get(task.teamId) ?? null,
         }));
       })
     );
@@ -332,6 +361,12 @@ export class Tasks implements OnInit {
   protected onStatusChange(task: TaskView, rawStatus: string): void {
     const newStatus = rawStatus as TaskStatus;
     if (task.status === newStatus) {
+      return;
+    }
+
+     // El asignado no puede modificar el estado si ya fue completada (salvo que sea owner).
+    if (task.status === 'DONE' && this.isTaskAssignee(task) && !this.isOwnerOfTask(task)) {
+      this.setFeedback('error', 'No puedes modificar el estado una vez que la tarea fue completada. Contacta al owner del equipo.');
       return;
     }
 
@@ -404,6 +439,8 @@ export class Tasks implements OnInit {
         return 'En progreso';
       case 'BLOCKED':
         return 'Bloqueada';
+      case 'PENDING_APPROVAL':
+        return 'Pendiente de aprobacion';
       case 'DONE':
         return 'Completada';
       default:
@@ -419,6 +456,7 @@ export class Tasks implements OnInit {
       case 'TODO': return 'border-l-slate-300'; // Gris
       case 'IN_PROGRESS': return 'border-l-amber-400'; // Amarillo
       case 'BLOCKED': return 'border-l-rose-500'; // Rojo
+      case 'PENDING_APPROVAL': return 'border-l-amber-600'; // Pendiente de aprobacion
       case 'DONE': return 'border-l-emerald-500'; // Verde
       default: return 'border-l-slate-200';
     }
@@ -456,6 +494,11 @@ export class Tasks implements OnInit {
   openPanel(panel: string): void {
     console.debug('[Tasks] openPanel requested', panel, 'user', this.currentUser);
     if (!this.ensureAuthenticated()) {
+      return;
+    }
+
+    if (panel === 'task' && !this.canCreateTasks) {
+      this.setFeedback('error', 'Solo el owner del equipo puede crear tareas.');
       return;
     }
 
@@ -509,6 +552,12 @@ export class Tasks implements OnInit {
         return;
       }
 
+      if (!this.isOwnerTeam(teamId)) {
+        this.setFeedback('error', 'Solo el owner del equipo puede crear tareas.');
+        this.stopProcessing();
+        return;
+      }
+
       const dueOnIso = dueOn ? `${dueOn}T00:00:00Z` : null;
 
       const checklistPayload =
@@ -553,7 +602,7 @@ export class Tasks implements OnInit {
       this.resetChecklist();
       this.closePanel();
       this.setFeedback('success', 'Tarea creada correctamente.');
-      this.observeUserTasks();
+      this.reloadTasks();
     } catch (error) {
       this.handleError(error);
     } finally {
@@ -577,6 +626,10 @@ export class Tasks implements OnInit {
     this.refreshTeams$.next(undefined);
   }
 
+  private reloadTasks(): void {
+    this.refreshTasks$.next(undefined);
+  }
+
   private startProcessing(): void {
     this.isProcessing = true;
   }
@@ -592,6 +645,115 @@ export class Tasks implements OnInit {
   private handleError(error: unknown): void {
     const friendly = toFriendlyError(error);
     this.setFeedback('error', friendly.message);
+  }
+
+  protected showCompletionButton(task: TaskView): boolean {
+    if (!this.currentUser) {
+      return false;
+    }
+    if (task.status === 'DONE' || task.status === 'PENDING_APPROVAL') {
+      return false;
+    }
+    return this.isOwnerOfTask(task) || this.isTaskAssignee(task);
+  }
+
+  protected showOwnerApprovalActions(task: TaskView): boolean {
+    return this.isAwaitingApproval(task) && this.isOwnerOfTask(task);
+  }
+
+  protected showWaitingApprovalMessage(task: TaskView): boolean {
+    return this.isAwaitingApproval(task) && this.isTaskAssignee(task);
+  }
+
+  protected shouldDisableStatusSelect(task: TaskView): boolean {
+    return task.status === 'DONE' && this.isTaskAssignee(task) && !this.isOwnerOfTask(task);
+  }
+
+  protected isAwaitingApproval(task: TaskView): boolean {
+    return task.status === 'PENDING_APPROVAL';
+  }
+
+  protected isCompletionLoading(taskId: number): boolean {
+    return this.completionLoading.has(taskId);
+  }
+
+  protected markTaskCompleted(task: TaskView): void {
+    if (!this.showCompletionButton(task)) {
+      return;
+    }
+    const action: TaskCompletionAction = this.isOwnerOfTask(task) ? 'APPROVE' : 'REQUEST';
+    this.executeCompletionAction(task, action);
+  }
+
+  protected approveTaskCompletion(task: TaskView): void {
+    if (!this.showOwnerApprovalActions(task)) {
+      return;
+    }
+    this.executeCompletionAction(task, 'APPROVE');
+  }
+
+  protected rejectTaskCompletion(task: TaskView): void {
+    if (!this.showOwnerApprovalActions(task)) {
+      return;
+    }
+    this.executeCompletionAction(task, 'REJECT');
+  }
+
+  private executeCompletionAction(task: TaskView, action: TaskCompletionAction): void {
+    if (!this.ensureAuthenticated() || !this.currentUser) {
+      return;
+    }
+
+    if (action === 'REQUEST' && !this.isTaskAssignee(task)) {
+      this.setFeedback('error', 'Solo el asignado puede solicitar la aprobacion.');
+      return;
+    }
+    if ((action === 'APPROVE' || action === 'REJECT') && !this.isOwnerOfTask(task)) {
+      this.setFeedback('error', 'Solo el owner del equipo puede gestionar aprobaciones.');
+      return;
+    }
+
+    this.setCompletionLoading(task.id, true);
+    this.taskService.complete(task.id, { userId: this.currentUser.id, action }).subscribe({
+      next: () => {
+        switch (action) {
+          case 'REQUEST':
+            this.setFeedback('success', 'Esperando aprobacion del lider.');
+            break;
+          case 'APPROVE':
+            this.setFeedback('success', 'Tarea marcada como completada.');
+            break;
+          case 'REJECT':
+            this.setFeedback('success', 'La tarea volvio a estado pendiente.');
+            break;
+        }
+        this.reloadTasks();
+      },
+      error: (error) => {
+        this.handleError(error);
+        this.setCompletionLoading(task.id, false);
+      },
+      complete: () => this.setCompletionLoading(task.id, false),
+    });
+  }
+
+  private isOwnerOfTask(task: TaskView): boolean {
+    return this.membershipRoleByTeam.get(task.teamId) === 'OWNER';
+  }
+
+  private isTaskAssignee(task: TaskView): boolean {
+    if (!this.currentUser) {
+      return false;
+    }
+    return task.assigneeId === this.currentUser.id;
+  }
+
+  private setCompletionLoading(taskId: number, loading: boolean): void {
+    if (loading) {
+      this.completionLoading.add(taskId);
+    } else {
+      this.completionLoading.delete(taskId);
+    }
   }
 
   protected addChecklistItem(initial?: {
@@ -637,5 +799,28 @@ export class Tasks implements OnInit {
       ]),
       completed: this.fb.control(initial?.completed ?? false),
     });
+  }
+
+  private getUserDisplayName(user: User): string {
+    return user.nickname && user.nickname.trim().length > 0 ? user.nickname.trim() : user.fullName;
+  }
+
+  private syncMembershipState(memberships: UserTeam[]): void {
+    this.membershipRoleByTeam.clear();
+    this.ownerTeamIds.clear();
+    memberships.forEach((membership) => {
+      this.membershipRoleByTeam.set(membership.teamId, membership.role);
+      if (membership.role === 'OWNER') {
+        this.ownerTeamIds.add(membership.teamId);
+      }
+    });
+    this.canCreateTasks = this.ownerTeamIds.size > 0;
+  }
+
+  private isOwnerTeam(teamId: number | null): boolean {
+    if (teamId == null) {
+      return false;
+    }
+    return this.ownerTeamIds.has(teamId);
   }
 }

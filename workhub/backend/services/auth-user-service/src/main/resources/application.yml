@@ -3,7 +3,7 @@ server:
 
 spring:
   config:
-    import: "optional:file:.env[.properties]"
+    import: "optional:file:.env[.properties],optional:file:backend/services/auth-user-service/.env[.properties],optional:file:workhub/backend/services/auth-user-service/.env[.properties]"
   application:
     name: auth-user-service
   datasource:

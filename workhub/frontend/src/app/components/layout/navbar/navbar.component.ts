@@ -26,8 +26,10 @@ export class NavbarComponent {
       .subscribe((user) => (this.currentUser = user));
   }
 
+  private readonly protectedRoutes = new Set(['/panel', '/equipos', '/tareas', '/calendario']);
+
   onNav(route: string, event: Event): void {
-    if (!this.currentUser) {
+    if (!this.currentUser && this.protectedRoutes.has(route)) {
       event.preventDefault();
       this.modalService.open('login');
       return;

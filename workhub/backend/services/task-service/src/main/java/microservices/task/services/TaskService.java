@@ -1,13 +1,18 @@
 package microservices.task.services;
 
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import microservices.task.clients.NotificationClient;
 import microservices.task.clients.TeamDirectoryClient;
+import microservices.task.clients.UserDirectoryClient;
 import microservices.task.dto.TaskAssignDTO;
 import microservices.task.dto.TaskChecklistItemCreateDTO;
 import microservices.task.dto.TaskChecklistItemDTO;
+import microservices.task.dto.TaskCompletionRequest;
+import microservices.task.dto.TaskCompletionRequest.TaskCompletionAction;
 import microservices.task.dto.TaskCreateDTO;
 import microservices.task.dto.TaskDTO;
 import microservices.task.dto.TaskUpdateDTO;
@@ -26,26 +31,32 @@ import org.springframework.web.server.ResponseStatusException;
 public class TaskService {
 
     private static final Logger log = LoggerFactory.getLogger(TaskService.class);
+    private static final String OWNER_ROLE = "OWNER";
 
     private final TaskRepository taskRepository;
     private final NotificationClient notificationClient;
     private final TeamDirectoryClient teamDirectoryClient;
+    private final UserDirectoryClient userDirectoryClient;
 
     public TaskService(TaskRepository taskRepository,
                        NotificationClient notificationClient,
-                       TeamDirectoryClient teamDirectoryClient) {
+                       TeamDirectoryClient teamDirectoryClient,
+                       UserDirectoryClient userDirectoryClient) {
         this.taskRepository = taskRepository;
         this.notificationClient = notificationClient;
         this.teamDirectoryClient = teamDirectoryClient;
+        this.userDirectoryClient = userDirectoryClient;
     }
 
     @Transactional
     public TaskDTO createTask(TaskCreateDTO request) {
+        ensureOwnerPermission(request.teamId(), request.createdBy(), "crear tareas");
+        TaskStatus initialStatus = sanitizeInitialStatus(request.status());
         TaskEntity entity = TaskEntity.builder()
                 .teamId(request.teamId())
                 .title(request.title())
                 .description(request.description())
-                .status(request.status())
+                .status(initialStatus)
                 .assigneeId(request.assigneeId())
                 .dueOn(request.dueOn())
                 .createdBy(request.createdBy())
@@ -92,7 +103,11 @@ public class TaskService {
             entity.setDescription(request.description());
         }
         if (request.status() != null) {
+            if (request.status() == TaskStatus.DONE || request.status() == TaskStatus.PENDING_APPROVAL) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Estado no editable manualmente");
+            }
             entity.setStatus(request.status());
+            clearApprovalMetadata(entity);
         }
 
         if (request.dueOn() != null) {
@@ -109,8 +124,32 @@ public class TaskService {
     @Transactional
     public TaskDTO assignTask(Long id, TaskAssignDTO request) {
         TaskEntity entity = findTask(id);
+        ensureOwnerPermission(entity.getTeamId(), request.requestedBy(), "asignar tareas");
         entity.setAssigneeId(request.assigneeId());
-        return map(taskRepository.save(entity));
+        TaskEntity saved = taskRepository.save(entity);
+        notifyAssignee(saved);
+        return map(saved);
+    }
+
+    @Transactional
+    public TaskDTO handleCompletion(Long id, TaskCompletionRequest request) {
+        if (request.userId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "userId requerido");
+        }
+        if (request.action() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Accion requerida");
+        }
+
+        TaskEntity entity = findTask(id);
+        TaskEntity updated;
+        TaskCompletionAction action = request.action();
+        switch (action) {
+            case REQUEST -> updated = requestCompletion(entity, request.userId());
+            case APPROVE -> updated = approveCompletion(entity, request.userId());
+            case REJECT -> updated = rejectCompletion(entity, request.userId());
+            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Accion invalida");
+        }
+        return map(updated);
     }
 
     private TaskEntity findTask(Long id) {
@@ -135,6 +174,8 @@ public class TaskService {
                 entity.getCreatedBy(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt(),
+                entity.getApprovalRequestedBy(),
+                entity.getApprovalRequestedAt(),
                 checklist
         );
     }
@@ -173,6 +214,77 @@ public class TaskService {
         List<TaskChecklistItemEntity> currentItems = new ArrayList<>(entity.getChecklistItems());
         currentItems.forEach(entity::removeChecklistItem);
         applyChecklist(entity, checklist);
+    }
+
+    private TaskEntity requestCompletion(TaskEntity entity, Long userId) {
+        Long assigneeId = entity.getAssigneeId();
+        if (assigneeId == null || !assigneeId.equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo el asignado puede marcar la tarea como completada");
+        }
+        if (entity.getStatus() == TaskStatus.DONE) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La tarea ya fue completada");
+        }
+        if (entity.getStatus() == TaskStatus.PENDING_APPROVAL) {
+            return entity;
+        }
+        entity.setPreviousStatus(entity.getStatus());
+        entity.setStatus(TaskStatus.PENDING_APPROVAL);
+        entity.setApprovalRequestedBy(userId);
+        entity.setApprovalRequestedAt(OffsetDateTime.now());
+        return taskRepository.save(entity);
+    }
+
+    private TaskEntity approveCompletion(TaskEntity entity, Long ownerId) {
+        ensureOwnerPermission(entity.getTeamId(), ownerId, "aprobar tareas");
+        if (entity.getStatus() != TaskStatus.DONE) {
+            entity.setStatus(TaskStatus.DONE);
+        }
+        clearApprovalMetadata(entity);
+        return taskRepository.save(entity);
+    }
+
+    private TaskEntity rejectCompletion(TaskEntity entity, Long ownerId) {
+        ensureOwnerPermission(entity.getTeamId(), ownerId, "rechazar aprobaciones");
+        if (entity.getStatus() != TaskStatus.PENDING_APPROVAL) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La tarea no esta pendiente de aprobacion");
+        }
+        TaskStatus fallback = entity.getPreviousStatus() != null ? entity.getPreviousStatus() : TaskStatus.TODO;
+        if (fallback == TaskStatus.DONE || fallback == TaskStatus.PENDING_APPROVAL) {
+            fallback = TaskStatus.TODO;
+        }
+        entity.setStatus(fallback);
+        clearApprovalMetadata(entity);
+        return taskRepository.save(entity);
+    }
+
+    private TaskStatus sanitizeInitialStatus(TaskStatus provided) {
+        if (provided == null) {
+            return TaskStatus.TODO;
+        }
+        if (provided == TaskStatus.DONE || provided == TaskStatus.PENDING_APPROVAL) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Estado inicial no valido");
+        }
+        return provided;
+    }
+
+    private void ensureOwnerPermission(Long teamId, Long userId, String actionDescription) {
+        if (userId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "userId requerido para " + actionDescription);
+        }
+        Optional<UserDirectoryClient.TeamMembershipResponse> membership =
+                userDirectoryClient.getMembership(userId, teamId);
+        boolean isOwner = membership
+                .map(member -> member.role() != null && OWNER_ROLE.equalsIgnoreCase(member.role()))
+                .orElse(false);
+        if (!isOwner) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo el owner del equipo puede " + actionDescription);
+        }
+    }
+
+    private void clearApprovalMetadata(TaskEntity entity) {
+        entity.setPreviousStatus(null);
+        entity.setApprovalRequestedBy(null);
+        entity.setApprovalRequestedAt(null);
     }
 
     private void notifyAssignee(TaskEntity task) {

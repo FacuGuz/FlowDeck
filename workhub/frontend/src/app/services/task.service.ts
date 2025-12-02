@@ -1,7 +1,13 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, catchError, throwError } from 'rxjs';
-import { Task, TaskAssignRequest, TaskCreateRequest, TaskUpdateRequest } from '../interfaces/task';
+import {
+  Task,
+  TaskAssignRequest,
+  TaskCompletionRequest,
+  TaskCreateRequest,
+  TaskUpdateRequest,
+} from '../interfaces/task';
 import { endpointFor } from './api-config';
 import { toFriendlyError } from './error.utils';
 
@@ -44,6 +50,12 @@ export class TaskService {
   assign(id: number, payload: TaskAssignRequest): Observable<Task> {
     return this.http
       .post<Task>(endpointFor('tasks', `/tasks/${id}/assign`), payload)
+      .pipe(catchError((error) => throwError(() => toFriendlyError(error))));
+  }
+
+  complete(id: number, payload: TaskCompletionRequest): Observable<Task> {
+    return this.http
+      .post<Task>(endpointFor('tasks', `/tasks/${id}/complete`), payload)
       .pipe(catchError((error) => throwError(() => toFriendlyError(error))));
   }
 }
