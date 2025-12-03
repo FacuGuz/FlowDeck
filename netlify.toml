@@ -1,0 +1,8 @@
+[build]
+  base = "workhub/frontend"
+  publish = "dist/frontend/browser"
+  command = "npm ci && npm run build"
+
+# Optional: pin Node version for Netlify build image
+[build.environment]
+  NODE_VERSION = "20"

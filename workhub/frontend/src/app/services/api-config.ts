@@ -1,8 +1,8 @@
 export const API_BASE_URLS = {
-  auth: 'http://localhost:8081',
-  teams: 'http://localhost:8082',
-  tasks: 'http://localhost:8083',
-  notifications: 'http://localhost:8084'
+  auth: 'https://auth-service-production-d9fe.up.railway.app',
+  teams: 'https://team-service-production-5c94.up.railway.app',
+  tasks: 'https://task-service-production-5ff3.up.railway.app',
+  notifications: 'https://notif-service-production.up.railway.app'
 } as const;
 
 export type ApiServiceKey = keyof typeof API_BASE_URLS;
