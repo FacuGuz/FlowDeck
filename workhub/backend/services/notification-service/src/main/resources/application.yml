@@ -5,7 +5,7 @@ spring:
   application:
     name: notification-service
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:15436}/notify_db?options=-c%20TimeZone=UTC
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:15436}/notify_db?options=-c%20TimeZone=UTC&sslmode=require
     username: ${DB_USER:notify_user}
     password: ${DB_PASSWORD:notify_password}
     hikari:
