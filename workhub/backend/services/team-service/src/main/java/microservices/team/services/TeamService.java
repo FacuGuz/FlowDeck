@@ -35,14 +35,22 @@ public class TeamService {
 
     @Transactional
     public TeamDTO createTeam(TeamCreateDTO request) {
-        String code = generateUniqueCode();
-
-        TeamEntity entity = TeamEntity.builder()
-                .name(request.name())
-                .code(code)
-                .build();
-
-        return mapTeam(teamRepository.save(entity));
+        for (int attempt = 0; attempt < MAX_GENERATION_ATTEMPTS; attempt++) {
+            try {
+                String code = generateUniqueCode();
+                TeamEntity entity = TeamEntity.builder()
+                        .name(request.name())
+                        .code(code)
+                        .build();
+                return mapTeam(teamRepository.save(entity));
+            } catch (org.springframework.dao.DataIntegrityViolationException ex) {
+                // Retry on code collision
+                if (attempt == MAX_GENERATION_ATTEMPTS - 1) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Team code already exists, try again");
+                }
+            }
+        }
+        throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Unable to create team");
     }
 
     @Transactional(readOnly = true)

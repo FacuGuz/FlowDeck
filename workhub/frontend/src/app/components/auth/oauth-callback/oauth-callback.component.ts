@@ -37,7 +37,6 @@ export class OAuthCallbackComponent implements OnInit {
       email,
       fullName: fullName || email,
       role,
-      password: '',
       createdAt,
     };
 

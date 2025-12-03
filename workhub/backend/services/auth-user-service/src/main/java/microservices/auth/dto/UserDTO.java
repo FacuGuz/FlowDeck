@@ -11,7 +11,6 @@ public record UserDTO(
         String nickname,
         String avatarUrl,
         UserRole role,
-        String password,
         OffsetDateTime createdAt
 ) {
 }

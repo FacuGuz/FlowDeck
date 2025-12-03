@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, catchError, map, of, switchMap, tap, throwError } from 'rxjs';
+import { BehaviorSubject, Observable, catchError, map, tap, throwError } from 'rxjs';
 import { User, UserCreateRequest, UserTeam } from '../interfaces/user';
 import { TeamRole } from '../enums/team-role';
 import { endpointFor } from './api-config';
@@ -22,23 +22,12 @@ export class AuthService {
   }
 
   login(email: string, password: string): Observable<User> {
-    return this.http.get<User[]>(endpointFor('auth', '/users')).pipe(
-      map((users) =>
-        users.find(
-          (user) =>
-            user.email.toLowerCase() === email.toLowerCase() &&
-            user.password === password
-        ) ?? null
-      ),
-      switchMap((user) => {
-        if (!user) {
-          return throwError(() => toFriendlyError(new Error('Credenciales invalidas')));
-        }
-        return of(user);
-      }),
-      tap((user) => this.setCurrentUser(user)),
-      catchError((error) => throwError(() => toFriendlyError(error)))
-    );
+    return this.http
+      .post<User>(endpointFor('auth', '/users/login'), { email, password })
+      .pipe(
+        tap((user) => this.setCurrentUser(user)),
+        catchError((error) => throwError(() => toFriendlyError(error)))
+      );
   }
 
   getUser(id: number): Observable<User> {
@@ -97,7 +86,7 @@ export class AuthService {
 
   // Marca el usuario como autenticado tras OAuth.
   completeOAuthLogin(user: User): void {
-    this.setCurrentUser({ ...user, password: '' });
+    this.setCurrentUser(user);
   }
 
   startGoogleOAuth(): Observable<string> {
@@ -110,9 +99,8 @@ export class AuthService {
   }
 
   private setCurrentUser(user: User | null): void {
-    const sanitized = user ? { ...user, password: '' } : null;
-    this.currentUserSubject.next(sanitized);
-    this.persistUser(sanitized);
+    this.currentUserSubject.next(user);
+    this.persistUser(user);
   }
 
   private restoreUser(): User | null {

@@ -8,7 +8,6 @@ export interface User {
   nickname?: string | null;
   avatarUrl?: string | null;
   role: UserRole;
-  password: string;
   createdAt: string;
 }
 

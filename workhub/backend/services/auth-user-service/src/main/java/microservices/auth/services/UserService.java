@@ -1,7 +1,11 @@
 package microservices.auth.services;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
+
+import microservices.auth.dto.GoogleProfileDTO;
 import microservices.auth.dto.UserCreateDTO;
 import microservices.auth.dto.UserDTO;
 import microservices.auth.dto.UserProfileUpdateDTO;
@@ -14,22 +18,22 @@ import microservices.auth.enums.UserRole;
 import microservices.auth.repositories.UserRepository;
 import microservices.auth.repositories.UserTeamRepository;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-import microservices.auth.dto.GoogleProfileDTO;
-import java.util.UUID;
-import java.time.OffsetDateTime;
 
 @Service
 public class UserService {
 
     private final UserRepository userRepository;
     private final UserTeamRepository userTeamRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public UserService(UserRepository userRepository, UserTeamRepository userTeamRepository) {
+    public UserService(UserRepository userRepository, UserTeamRepository userTeamRepository, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.userTeamRepository = userTeamRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Transactional
@@ -44,11 +48,23 @@ public class UserService {
                 .email(request.email())
                 .fullName(request.fullName())
                 .role(role)
-                .password(request.password())
+                .password(passwordEncoder.encode(request.password()))
                 .build();
 
         UserEntity saved = userRepository.save(entity);
         return mapUser(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public UserDTO login(String email, String password) {
+        UserEntity user = userRepository.findByEmailIgnoreCase(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Credenciales inválidas"));
+
+        if (!passwordEncoder.matches(password, user.getPassword())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Credenciales inválidas");
+        }
+
+        return mapUser(user);
     }
 
     @Transactional
@@ -61,7 +77,7 @@ public class UserService {
                             .email(profile.email())
                             .fullName(profile.fullName())
                             .role(UserRole.USER)
-                            .password(generatePlaceholderPassword())
+                            .password(passwordEncoder.encode(generatePlaceholderPassword()))
                             .googleSub(profile.sub())
                             .googleRefreshToken(refreshToken)
                             .createdAt(OffsetDateTime.now())
@@ -194,7 +210,6 @@ public class UserService {
                 entity.getNickname(),
                 entity.getAvatarUrl(),
                 entity.getRole(),
-                entity.getPassword(),
                 entity.getCreatedAt()
         );
     }

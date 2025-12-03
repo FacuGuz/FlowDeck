@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.List;
 
 import jakarta.validation.Valid;
+import microservices.auth.dto.LoginRequest;
 import microservices.auth.dto.UserCreateDTO;
 import microservices.auth.dto.UserDTO;
 import microservices.auth.dto.UserProfileUpdateDTO;
@@ -92,5 +93,10 @@ public class UserController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void removeUserTeamById(@PathVariable Long userTeamId) {
         userService.removeUserTeamById(userTeamId);
+    }
+
+    @PostMapping("/login")
+    public UserDTO login(@Valid @RequestBody LoginRequest request) {
+        return userService.login(request.email(), request.password());
     }
 }
