@@ -1,0 +1,75 @@
+{
+  "services": [
+    {
+      "name": "auth-user-service",
+      "path": "workhub/backend/services/auth-user-service",
+      "build": {
+        "command": "bash ./mvnw -DskipTests clean package"
+      },
+      "start": "java -Dserver.port=${PORT:-8081} -jar target/auth-user-service-0.0.1-SNAPSHOT.jar",
+      "env": {
+        "DB_HOST": "shinkansen.proxy.rlwy.net",
+        "DB_PORT": "50454",
+        "DB_USER": "postgres",
+        "DB_PASSWORD": "GcHwGthOzaQPFxWSzujeOcZgeCvQWsxV",
+        "app.cors.allowed-origins": "https://flowdeckapp.netlify.app",
+        "PORT": "8081",
+        "NIXPACKS_JAVA_VERSION": "17"
+      }
+    },
+    {
+      "name": "team-service",
+      "path": "workhub/backend/services/team-service",
+      "build": {
+        "command": "bash ./mvnw -DskipTests clean package"
+      },
+      "start": "java -Dserver.port=${PORT:-8082} -jar target/team-service-0.0.1-SNAPSHOT.jar",
+      "env": {
+        "DB_HOST": "shinkansen.proxy.rlwy.net",
+        "DB_PORT": "50454",
+        "DB_USER": "postgres",
+        "DB_PASSWORD": "GcHwGthOzaQPFxWSzujeOcZgeCvQWsxV",
+        "app.cors.allowed-origins": "https://flowdeckapp.netlify.app",
+        "PORT": "8082",
+        "NIXPACKS_JAVA_VERSION": "17"
+      }
+    },
+    {
+      "name": "task-service",
+      "path": "workhub/backend/services/task-service",
+      "build": {
+        "command": "bash ./mvnw -DskipTests clean package"
+      },
+      "start": "java -Dserver.port=${PORT:-8083} -jar target/task-service-0.0.1-SNAPSHOT.jar",
+      "env": {
+        "DB_HOST": "shinkansen.proxy.rlwy.net",
+        "DB_PORT": "50454",
+        "DB_USER": "postgres",
+        "DB_PASSWORD": "GcHwGthOzaQPFxWSzujeOcZgeCvQWsxV",
+        "app.cors.allowed-origins": "https://flowdeckapp.netlify.app",
+        "PORT": "8083",
+        "NIXPACKS_JAVA_VERSION": "17",
+        "AUTH_SERVICE_URL": "https://<auth-service-url>",
+        "TEAM_SERVICE_URL": "https://<team-service-url>",
+        "NOTIFICATION_SERVICE_URL": "https://<notification-service-url>"
+      }
+    },
+    {
+      "name": "notification-service",
+      "path": "workhub/backend/services/notification-service",
+      "build": {
+        "command": "bash ./mvnw -DskipTests clean package"
+      },
+      "start": "java -Dserver.port=${PORT:-8084} -jar target/notification-service-0.0.1-SNAPSHOT.jar",
+      "env": {
+        "DB_HOST": "shinkansen.proxy.rlwy.net",
+        "DB_PORT": "50454",
+        "DB_USER": "postgres",
+        "DB_PASSWORD": "GcHwGthOzaQPFxWSzujeOcZgeCvQWsxV",
+        "app.cors.allowed-origins": "https://flowdeckapp.netlify.app",
+        "PORT": "8084",
+        "NIXPACKS_JAVA_VERSION": "17"
+      }
+    }
+  ]
+}
