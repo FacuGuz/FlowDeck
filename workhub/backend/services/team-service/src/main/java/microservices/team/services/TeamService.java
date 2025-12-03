@@ -3,8 +3,6 @@ package microservices.team.services;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-import java.util.concurrent.ThreadLocalRandom;
-
 import microservices.team.dto.TeamCreateDTO;
 import microservices.team.dto.TeamDTO;
 import microservices.team.dto.TeamMemberCreateDTO;
@@ -13,10 +11,13 @@ import microservices.team.entities.TeamEntity;
 import microservices.team.entities.TeamMemberEntity;
 import microservices.team.repositories.TeamMemberRepository;
 import microservices.team.repositories.TeamRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+
+import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 public class TeamService {
@@ -36,15 +37,15 @@ public class TeamService {
     @Transactional
     public TeamDTO createTeam(TeamCreateDTO request) {
         for (int attempt = 0; attempt < MAX_GENERATION_ATTEMPTS; attempt++) {
+            String code = generateUniqueCode();
             try {
-                String code = generateUniqueCode();
                 TeamEntity entity = TeamEntity.builder()
                         .name(request.name())
                         .code(code)
                         .build();
                 return mapTeam(teamRepository.save(entity));
-            } catch (org.springframework.dao.DataIntegrityViolationException ex) {
-                // Retry on code collision
+            } catch (DataIntegrityViolationException ex) {
+                // Code collision, retry with a new code
                 if (attempt == MAX_GENERATION_ATTEMPTS - 1) {
                     throw new ResponseStatusException(HttpStatus.CONFLICT, "Team code already exists, try again");
                 }
