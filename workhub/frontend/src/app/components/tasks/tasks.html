@@ -244,11 +244,11 @@
       }
     </div>
 
-    <div class="mt-6 flex justify-center">
+    <div class="mt-6">
       <button type="button"
-              class="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition"
+              class="flex w-full items-center justify-between rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition"
               (click)="showHistory = !showHistory">
-        <span class="tracking-widest text-xs font-bold">-------- HISTORIAL --------</span>
+        <span>Historial de completadas</span>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4 transition"
              [ngClass]="{ 'rotate-180': showHistory }">
           <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 10.94l3.71-3.7a.75.75 0 0 1 1.08 1.04l-4.25 4.25a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06Z" clip-rule="evenodd" />
