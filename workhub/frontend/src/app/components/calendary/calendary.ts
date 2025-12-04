@@ -46,6 +46,10 @@ export class Calendary implements OnInit {
   toastLink = 'https://calendar.google.com/calendar';
 
   ngOnInit(): void {
+    // Siempre arrancamos mostrando el mes actual.
+    this.viewDate = new Date();
+    this.generateCalendar();
+
     this.authService.currentUser$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((user) => (this.currentUser = user));
