@@ -242,7 +242,12 @@ export class Teams implements OnInit {
           this.authService.addUserToTeam(this.currentUserId, {
             teamId: team.id,
             role: 'OWNER'
-          })
+          }).pipe(
+            catchError((err: any) => {
+              if (err?.status === 409) return of(null);
+              throw err;
+            })
+          )
         );
       }
       this.setFeedback('success', 'Equipo creado correctamente');
@@ -272,9 +277,21 @@ export class Teams implements OnInit {
         return;
       }
 
-      await firstValueFrom(this.teamService.addMember(team.id, { userId: this.currentUserId }));
       await firstValueFrom(
-        this.authService.addUserToTeam(this.currentUserId, { teamId: team.id, role: 'MEMBER' })
+        this.teamService.addMember(team.id, { userId: this.currentUserId }).pipe(
+          catchError((err: any) => {
+            if (err?.status === 409) return of(null);
+            throw err;
+          })
+        )
+      );
+      await firstValueFrom(
+        this.authService.addUserToTeam(this.currentUserId, { teamId: team.id, role: 'MEMBER' }).pipe(
+          catchError((err: any) => {
+            if (err?.status === 409) return of(null);
+            throw err;
+          })
+        )
       );
 
       this.setFeedback('success', 'Te has unido al equipo');
