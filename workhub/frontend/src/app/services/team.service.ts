@@ -44,10 +44,18 @@ export class TeamService {
       .pipe(catchError((error) => throwError(() => toFriendlyError(error))));
   }
 
-  addMember(teamId: number, payload: { userId: number }): Observable<TeamMember> {
+  addMember(teamId: number, payload: { userId: number }): Observable<TeamMember | null> {
     return this.http
       .post<TeamMember>(endpointFor('teams', `/teams/${teamId}/members`), payload)
-      .pipe(catchError((error) => throwError(() => toFriendlyError(error))));
+      .pipe(
+        catchError((error) => {
+          // Si ya es miembro, tratamos como éxito para no romper el flujo.
+          if (error?.status === 409) {
+            return of(null);
+          }
+          return throwError(() => toFriendlyError(error));
+        })
+      );
   }
 
   removeMember(teamId: number, memberId: number): Observable<void> {

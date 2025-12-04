@@ -95,8 +95,10 @@ public class TeamService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "userId is required");
         }
 
-        if (teamMemberRepository.existsByTeam_IdAndUserId(teamId, request.userId())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "User already belongs to team");
+        // Idempotente: si ya existe, devuelve el miembro existente
+        var existing = teamMemberRepository.findByTeam_IdAndUserId(teamId, request.userId());
+        if (existing.isPresent()) {
+            return mapMember(existing.get());
         }
 
         try {
@@ -106,7 +108,10 @@ public class TeamService {
                     .build();
             return mapMember(teamMemberRepository.save(entity));
         } catch (DataIntegrityViolationException ex) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "User already belongs to team");
+            // Si por condición de carrera ya existe, retorna el existente
+            return teamMemberRepository.findByTeam_IdAndUserId(teamId, request.userId())
+                    .map(this::mapMember)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "User already belongs to team"));
         }
     }
 

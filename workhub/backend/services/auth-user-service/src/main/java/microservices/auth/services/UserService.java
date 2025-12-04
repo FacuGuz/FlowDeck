@@ -147,8 +147,10 @@ public class UserService {
     public UserTeamDTO addUserToTeam(Long userId, UserTeamCreateDTO request) {
         UserEntity user = findUserEntity(userId);
 
-        if (userTeamRepository.existsByUser_IdAndTeamId(userId, request.teamId())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "User already belongs to the team");
+        // Idempotente: si ya existe la membresía, retornamos la existente
+        Optional<UserTeamEntity> existing = userTeamRepository.findByUser_IdAndTeamId(userId, request.teamId());
+        if (existing.isPresent()) {
+            return mapUserTeam(existing.get());
         }
 
         TeamRole teamRole = request.role() != null ? request.role() : TeamRole.MEMBER;
