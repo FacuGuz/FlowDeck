@@ -53,6 +53,12 @@ export class TaskService {
       .pipe(catchError((error) => throwError(() => toFriendlyError(error))));
   }
 
+  delete(id: number): Observable<void> {
+    return this.http
+      .delete<void>(endpointFor('tasks', `/tasks/${id}`))
+      .pipe(catchError((error) => throwError(() => toFriendlyError(error))));
+  }
+
   complete(id: number, payload: TaskCompletionRequest): Observable<Task> {
     return this.http
       .post<Task>(endpointFor('tasks', `/tasks/${id}/complete`), payload)

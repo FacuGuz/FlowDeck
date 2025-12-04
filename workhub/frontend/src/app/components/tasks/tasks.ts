@@ -95,6 +95,10 @@ export class Tasks implements OnInit {
   private readonly ownerTeamIds = new Set<number>();
   private readonly teamInfoById = new Map<number, Team>();
 
+  protected activeTasks: TaskView[] = [];
+  protected completedTasks: TaskView[] = [];
+  protected showHistory = false;
+  private readonly deletingTasks = new Set<number>();
   protected canCreateTasks = false;
 
   protected activePanel: string | null = null;
@@ -256,6 +260,11 @@ export class Tasks implements OnInit {
     }
   }
 
+  refresh(): void {
+    this.refreshTeams();
+    this.reloadTasks();
+  }
+
   isViewMode(mode: 'mine' | 'team'): boolean {
     return this.viewMode$.value === mode;
   }
@@ -305,10 +314,13 @@ export class Tasks implements OnInit {
       .subscribe({
         next: (tasks) => {
           this.tareas = tasks;
+          this.splitTasks(tasks);
         },
         error: (error) => {
           console.error('Error loading tasks', error);
-          this.tareas = [];
+          const empty: TaskView[] = [];
+          this.tareas = empty;
+          this.splitTasks(empty);
         },
       });
   }
@@ -746,6 +758,38 @@ export class Tasks implements OnInit {
     return this.membershipRoleByTeam.get(task.teamId) === 'OWNER';
   }
 
+  protected canDeleteTask(task: TaskView): boolean {
+    if (!this.currentUser) return false;
+    return this.isOwnerOfTask(task) || task.createdBy === this.currentUser.id;
+  }
+
+  protected isDeleting(taskId: number): boolean {
+    return this.deletingTasks.has(taskId);
+  }
+
+  protected deleteTask(task: TaskView): void {
+    if (!this.canDeleteTask(task)) {
+      this.setFeedback('error', 'No tienes permiso para eliminar esta tarea.');
+      return;
+    }
+    if (!confirm('¿Eliminar esta tarea?')) {
+      return;
+    }
+
+    this.deletingTasks.add(task.id);
+    this.taskService.delete(task.id).subscribe({
+      next: () => {
+        this.setFeedback('success', 'Tarea eliminada.');
+        this.reloadTasks();
+      },
+      error: (error) => {
+        this.handleError(error);
+        this.deletingTasks.delete(task.id);
+      },
+      complete: () => this.deletingTasks.delete(task.id),
+    });
+  }
+
   private isTaskAssignee(task: TaskView): boolean {
     if (!this.currentUser) {
       return false;
@@ -827,5 +871,19 @@ export class Tasks implements OnInit {
       return false;
     }
     return this.ownerTeamIds.has(teamId);
+  }
+
+  private splitTasks(tasks: TaskView[]): void {
+    this.activeTasks = tasks.filter((t) => t.status !== 'DONE');
+    this.completedTasks = tasks
+      .filter((t) => t.status === 'DONE')
+      .sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''));
+  }
+
+  protected getCompletionDate(task: TaskView): string {
+    const date = task.updatedAt || task.createdAt;
+    if (!date) return 'Sin fecha';
+    const [d] = date.split('T');
+    return d ?? 'Sin fecha';
   }
 }
