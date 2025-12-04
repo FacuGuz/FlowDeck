@@ -260,11 +260,6 @@ export class Tasks implements OnInit {
     }
   }
 
-  refresh(): void {
-    this.refreshTeams();
-    this.reloadTasks();
-  }
-
   isViewMode(mode: 'mine' | 'team'): boolean {
     return this.viewMode$.value === mode;
   }
