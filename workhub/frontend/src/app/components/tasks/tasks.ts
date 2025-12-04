@@ -236,6 +236,11 @@ export class Tasks implements OnInit {
     this.observeUserTasks();
   }
 
+  refresh(): void {
+    this.refreshTeams();
+    this.reloadTasks();
+  }
+
   toggleTeamFilter(teamId: number): void {
     const current = this.selectedTeamId$.value;
     this.selectedTeamId$.next(current === teamId ? null : teamId);
