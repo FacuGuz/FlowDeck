@@ -53,9 +53,11 @@ export class TaskService {
       .pipe(catchError((error) => throwError(() => toFriendlyError(error))));
   }
 
-  delete(id: number): Observable<void> {
+  delete(id: number, userId: number): Observable<void> {
     return this.http
-      .delete<void>(endpointFor('tasks', `/tasks/${id}`))
+      .delete<void>(endpointFor('tasks', `/tasks/${id}`), {
+        params: new HttpParams().set('userId', userId)
+      })
       .pipe(catchError((error) => throwError(() => toFriendlyError(error))));
   }
 

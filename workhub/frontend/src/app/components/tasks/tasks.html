@@ -142,13 +142,30 @@
               </select>
 
               @if (canDeleteTask(task)) {
-                <button type="button"
-                        class="rounded-lg px-3 py-1.5 text-xs font-semibold text-rose-600 bg-rose-50 border border-rose-100 hover:bg-rose-100 transition disabled:opacity-60 disabled:cursor-not-allowed"
-                        [disabled]="isDeleting(task.id)"
-                        (click)="deleteTask(task)"
-                        title="Eliminar tarea">
-                  {{ isDeleting(task.id) ? 'Eliminando...' : 'Eliminar' }}
-                </button>
+                @if (confirmDeleteId === task.id) {
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs text-slate-500">¿Eliminar?</span>
+                    <button type="button"
+                            class="rounded-lg px-3 py-1.5 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-500 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                            [disabled]="isDeleting(task.id)"
+                            (click)="deleteTask(task)">
+                      {{ isDeleting(task.id) ? 'Eliminando...' : 'Confirmar' }}
+                    </button>
+                    <button type="button"
+                            class="rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition"
+                            (click)="cancelDelete()">
+                      Cancelar
+                    </button>
+                  </div>
+                } @else {
+                  <button type="button"
+                          class="rounded-lg px-3 py-1.5 text-xs font-semibold text-rose-600 bg-rose-50 border border-rose-100 hover:bg-rose-100 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                          [disabled]="isDeleting(task.id)"
+                          (click)="promptDelete(task)"
+                          title="Eliminar tarea">
+                    Eliminar
+                  </button>
+                }
               }
             </div>
           </div>
@@ -269,12 +286,29 @@
               </div>
               @if (canDeleteTask(task)) {
                 <div class="pt-2">
-                  <button type="button"
-                          class="rounded-lg px-3 py-1.5 text-xs font-semibold text-rose-600 bg-rose-50 border border-rose-100 hover:bg-rose-100 transition disabled:opacity-60 disabled:cursor-not-allowed"
-                          [disabled]="isDeleting(task.id)"
-                          (click)="deleteTask(task)">
-                    {{ isDeleting(task.id) ? 'Eliminando...' : 'Eliminar' }}
-                  </button>
+                  @if (confirmDeleteId === task.id) {
+                    <div class="flex items-center gap-2">
+                      <span class="text-xs text-slate-500">¿Eliminar?</span>
+                      <button type="button"
+                              class="rounded-lg px-3 py-1.5 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-500 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                              [disabled]="isDeleting(task.id)"
+                              (click)="deleteTask(task)">
+                        {{ isDeleting(task.id) ? 'Eliminando...' : 'Confirmar' }}
+                      </button>
+                      <button type="button"
+                              class="rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition"
+                              (click)="cancelDelete()">
+                        Cancelar
+                      </button>
+                    </div>
+                  } @else {
+                    <button type="button"
+                            class="rounded-lg px-3 py-1.5 text-xs font-semibold text-rose-600 bg-rose-50 border border-rose-100 hover:bg-rose-100 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                            [disabled]="isDeleting(task.id)"
+                            (click)="promptDelete(task)">
+                      Eliminar
+                    </button>
+                  }
                 </div>
               }
             </article>

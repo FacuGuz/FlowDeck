@@ -152,6 +152,19 @@ public class TaskService {
         return map(updated);
     }
 
+    @Transactional
+    public void deleteTask(Long id, Long userId) {
+        if (userId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "userId requerido para eliminar tareas");
+        }
+        TaskEntity entity = findTask(id);
+        boolean isCreator = entity.getCreatedBy() != null && entity.getCreatedBy().equals(userId);
+        if (!isCreator) {
+            ensureOwnerPermission(entity.getTeamId(), userId, "eliminar tareas");
+        }
+        taskRepository.delete(entity);
+    }
+
     private TaskEntity findTask(Long id) {
         return taskRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Task not found"));

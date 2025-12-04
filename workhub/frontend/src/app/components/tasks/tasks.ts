@@ -100,6 +100,7 @@ export class Tasks implements OnInit {
   protected showHistory = false;
   private readonly deletingTasks = new Set<number>();
   protected canCreateTasks = false;
+  protected confirmDeleteId: number | null = null;
 
   protected activePanel: string | null = null;
   protected isProcessing = false;
@@ -762,17 +763,30 @@ export class Tasks implements OnInit {
     return this.deletingTasks.has(taskId);
   }
 
-  protected deleteTask(task: TaskView): void {
+  protected promptDelete(task: TaskView): void {
     if (!this.canDeleteTask(task)) {
       this.setFeedback('error', 'No tienes permiso para eliminar esta tarea.');
       return;
     }
-    if (!confirm('¿Eliminar esta tarea?')) {
+    this.confirmDeleteId = task.id;
+  }
+
+  protected cancelDelete(): void {
+    this.confirmDeleteId = null;
+  }
+
+  protected deleteTask(task: TaskView): void {
+    if (!this.currentUser) {
+      this.openLogin();
       return;
     }
-
+    if (!this.canDeleteTask(task)) {
+      this.setFeedback('error', 'No tienes permiso para eliminar esta tarea.');
+      return;
+    }
+    this.confirmDeleteId = null;
     this.deletingTasks.add(task.id);
-    this.taskService.delete(task.id).subscribe({
+    this.taskService.delete(task.id, this.currentUser.id).subscribe({
       next: () => {
         this.setFeedback('success', 'Tarea eliminada.');
         this.reloadTasks();
