@@ -91,16 +91,23 @@ public class TeamService {
     public TeamMemberDTO addMember(Long teamId, TeamMemberCreateDTO request) {
         TeamEntity team = findTeamEntity(teamId);
 
+        if (request.userId() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "userId is required");
+        }
+
         if (teamMemberRepository.existsByTeam_IdAndUserId(teamId, request.userId())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "User already belongs to team");
         }
 
-        TeamMemberEntity entity = TeamMemberEntity.builder()
-                .team(team)
-                .userId(request.userId())
-                .build();
-
-        return mapMember(teamMemberRepository.save(entity));
+        try {
+            TeamMemberEntity entity = TeamMemberEntity.builder()
+                    .team(team)
+                    .userId(request.userId())
+                    .build();
+            return mapMember(teamMemberRepository.save(entity));
+        } catch (DataIntegrityViolationException ex) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "User already belongs to team");
+        }
     }
 
     @Transactional
