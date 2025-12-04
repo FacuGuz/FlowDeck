@@ -12,3 +12,4 @@ backend/**/.mvn/wrapper/maven-wrapper.jar
 *.log
 logs/
 tmp/
+railway.json
