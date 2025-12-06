@@ -41,7 +41,6 @@ export class Calendary implements OnInit {
   private tasksMap: Map<string, Task[]> = new Map();
   private teamNames: Map<number, string> = new Map();
   private currentUser: User | null = null;
-  private readonly calendarIntegrationEnabled = false;
   calendarLinked = false;
   toastVisible = false;
   toastLink = 'https://calendar.google.com/calendar';
@@ -180,9 +179,6 @@ export class Calendary implements OnInit {
 
   async connectCalendar(event?: Event): Promise<void> {
     event?.stopPropagation();
-    if (!this.calendarIntegrationEnabled) {
-      return;
-    }
     if (this.calendarLinked) return;
     const user = this.currentUser ?? await firstValueFrom(this.authService.currentUser$);
     if (!user) {
@@ -201,7 +197,6 @@ export class Calendary implements OnInit {
 
   async syncTaskToCalendar(task: Task, event?: Event): Promise<void> {
     event?.stopPropagation();
-    if (!this.calendarIntegrationEnabled) return;
     if (!task.dueOn) return;
     const user = this.currentUser ?? await firstValueFrom(this.authService.currentUser$);
     if (!user) {
