@@ -1,4 +1,4 @@
-<section class="flex-1 flex flex-col gap-8 p-6 sm:p-8 bg-slate-50/50 min-h-full">
+<section class="flex-1 flex flex-col gap-8 p-4 sm:p-8 bg-slate-50/50 min-h-full">
 
   <header class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
     <div>
@@ -92,9 +92,9 @@
                   <div class="absolute -top-20 -right-20 h-40 w-40 rounded-full bg-[#427A76]/5 blur-3xl transition-all duration-500 group-hover:bg-[#427A76]/10"></div>
                   <div class="absolute -bottom-10 -left-10 h-32 w-32 rounded-full bg-teal-400/5 blur-3xl transition-all duration-500 group-hover:bg-teal-400/10"></div>
 
-                  <div class="relative p-8">
+                    <div class="relative p-8">
 
-                    <div class="flex items-start justify-between mb-6">
+                    <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between mb-6">
                       <div class="flex items-center gap-4">
                         <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-900 shadow-xl shadow-slate-900/20 transition-transform duration-300 group-hover:scale-110">
                           <svg viewBox="0 0 24 24" class="w-7 h-7" xmlns="http://www.w3.org/2000/svg" fill="#ffffff">
@@ -125,7 +125,7 @@
                         </div>
                       </div>
 
-                      <div class="flex gap-2">
+                      <div class="flex gap-2 flex-wrap sm:flex-nowrap">
                         @if (teamView.myTeamMemberId && teamView.membershipRole !== 'OWNER') {
                           <button type="button"
                                   title="Salir del equipo"
@@ -152,7 +152,7 @@
                     </div>
 
                     <div class="mb-6">
-                      <div class="flex items-center justify-between mb-4">
+                      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
                         <div class="flex items-center gap-3">
                           <span class="text-xs font-bold uppercase tracking-widest text-slate-400">Equipo</span>
                           <div class="h-px w-8 bg-slate-300"></div>
@@ -171,7 +171,7 @@
                       </div>
 
                       @if (!isTeamExpanded(teamView.team.id)) {
-                        <div class="flex items-start gap-4 p-4 rounded-2xl bg-white border border-slate-200">
+                        <div class="flex flex-col gap-3 rounded-2xl bg-white border border-slate-200 p-4 sm:flex-row sm:items-start sm:gap-4">
                           <div class="flex-shrink-0">
                             <div class="relative inline-flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-slate-800 to-slate-700 text-sm font-bold text-white shadow-lg overflow-hidden" title="Lider: {{ teamView.leaderName }}">
                               @if (teamView.leaderAvatar) {
@@ -212,7 +212,7 @@
 
                       @if (isTeamExpanded(teamView.team.id)) {
                         <div class="space-y-3 animate-fade-in">
-                          <div class="flex items-center gap-4 p-4 rounded-2xl bg-gradient-to-r from-slate-900 to-slate-800 text-white shadow-lg">
+                          <div class="flex flex-col gap-3 p-4 rounded-2xl bg-gradient-to-r from-slate-900 to-slate-800 text-white shadow-lg sm:flex-row sm:items-center">
                             <div class="flex h-12 w-12 items-center justify-center rounded-full bg-white/10 backdrop-blur text-sm font-bold overflow-hidden flex-shrink-0">
                               @if (teamView.leaderAvatar) {
                                 <img [src]="teamView.leaderAvatar" alt="{{ teamView.leaderName }}" class="h-full w-full object-cover" />
@@ -228,7 +228,7 @@
 
                           @for (member of teamView.members; track member.userId) {
                             @if (member.userId !== teamView.leaderUserId) {
-                              <div class="group/member flex items-center justify-between gap-4 p-4 rounded-2xl bg-slate-700 border border-slate-600 hover:border-slate-500 hover:shadow-md transition-all">
+                              <div class="group/member flex flex-col gap-3 p-4 rounded-2xl bg-slate-700 border border-slate-600 hover:border-slate-500 hover:shadow-md transition-all sm:flex-row sm:items-center sm:justify-between">
                                 <div class="flex items-center gap-4">
                                   <div class="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-slate-500 to-slate-600 text-sm font-bold text-white overflow-hidden flex-shrink-0">
                                     @if (member.avatarUrl) {

@@ -32,12 +32,12 @@
         </div>
       </div>
 
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <input type="file"
                accept="image/png,image/jpeg,image/webp"
-               class="text-sm"
+               class="text-sm w-full sm:w-auto"
                (change)="onAvatarSelected($event)" />
-        <div class="flex gap-3">
+        <div class="flex w-full flex-wrap gap-3 sm:w-auto">
           <button type="button"
                   class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
                   (click)="uploadAvatar()"

@@ -1,4 +1,4 @@
-﻿<header class="flex h-16 w-full items-center justify-between border-b border-slate-200 bg-gray-800 backdrop-blur px-5">
+<header class="flex w-full flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-gray-800 px-4 py-3 backdrop-blur sm:flex-nowrap sm:px-5">
   <div class="flex items-center">
     <a routerLink="/inicio" class="inline-flex items-center">
       <img
@@ -9,7 +9,7 @@
     </a>
   </div>
 
-  <div class="flex items-center gap-4 text-sm">
+  <div class="flex w-full flex-wrap items-center gap-3 text-sm sm:w-auto sm:flex-nowrap sm:justify-end">
     <ng-container *ngIf="currentUser$ | async as user; else loggedOut">
       <div class="relative">
         <button
@@ -33,7 +33,7 @@
         <ng-container *ngIf="notifications$ | async as notifications">
           <div
             *ngIf="isPanelOpen"
-            class="absolute right-0 top-12 z-50 w-80 rounded-xl border border-slate-200 bg-white shadow-2xl">
+            class="absolute right-0 top-12 z-50 w-80 max-w-[90vw] rounded-xl border border-slate-200 bg-white shadow-2xl">
             <div class="flex items-center justify-between border-b border-slate-100 px-4 py-3">
               <p class="text-sm font-semibold text-slate-900">Notificaciones</p>
               <button
@@ -77,7 +77,7 @@
         </ng-container>
       </div>
 
-      <div class="flex items-center gap-3 rounded-full bg-slate-100 px-3 py-1.5">
+      <div class="flex items-center gap-3 rounded-full bg-slate-100 px-3 py-1.5 min-w-0">
         <ng-container *ngIf="user.avatarUrl; else headerInitials">
           <img [src]="user.avatarUrl" alt="Avatar" class="h-8 w-8 rounded-full border border-slate-200 object-cover" />
         </ng-container>
@@ -95,8 +95,8 @@
       <button
         type="button"
         (click)="logout()"
-        class="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300">
-        Cerrar sesión
+        class="inline-flex w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-900 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300 sm:w-auto">
+        Cerrar sesion
       </button>
     </ng-container>
 
@@ -104,13 +104,13 @@
       <button
         type="button"
         (click)="openLogin()"
-        class="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300">
-        Iniciar sesión
+        class="inline-flex w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-900 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300 sm:w-auto">
+        Iniciar sesion
       </button>
       <button
         type="button"
         (click)="openRegister()"
-        class="inline-flex items-center justify-center rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400">
+        class="inline-flex w-full items-center justify-center rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400 sm:w-auto">
         Crear cuenta
       </button>
     </ng-template>
