@@ -1,6 +1,7 @@
-import { Component, inject } from '@angular/core';
+import { Component, DestroyRef, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ModalService } from '../../services/modal.service';
 import { AuthService } from '../../services/auth.service';
 import { User } from '../../interfaces/user';
@@ -16,10 +17,13 @@ export class Landing {
   private readonly modalService = inject(ModalService);
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
   private currentUser: User | null = null;
 
   constructor() {
-    this.authService.currentUser$.subscribe((user) => (this.currentUser = user));
+    this.authService.currentUser$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((user) => (this.currentUser = user));
   }
 
   openRegister(): void {

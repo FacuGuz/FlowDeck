@@ -24,6 +24,12 @@
            class="text-xs text-[#427A76] underline hover:text-[#28514f]">
           Ver calendario
         </a>
+        <button *ngIf="calendarLinked"
+                type="button"
+                class="text-xs text-rose-600 font-semibold hover:underline mt-1"
+                (click)="disconnectCalendar()">
+          Desvincular
+        </button>
       </div>
 
       <div class="flex w-full flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-2 shadow-sm sm:w-auto sm:justify-start">

@@ -41,6 +41,7 @@ export class Calendary implements OnInit {
   private tasksMap: Map<string, Task[]> = new Map();
   private teamNames: Map<number, string> = new Map();
   private currentUser: User | null = null;
+  private readonly calendarStorageKey = 'flowdeck.calendarLinked';
   calendarLinked = false;
   toastVisible = false;
   toastLink = 'https://calendar.google.com/calendar';
@@ -217,7 +218,11 @@ export class Calendary implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => this.showToast(),
-        error: (err) => console.error(err)
+        error: (err) => {
+          console.error(err);
+          // Si falla por permisos, permite al usuario resetear el estado local.
+          this.setCalendarLinked(false);
+        }
       });
   }
 
@@ -241,15 +246,31 @@ export class Calendary implements OnInit {
     const search = typeof window !== 'undefined' ? window.location.search : '';
     const params = new URLSearchParams(search);
     if (params.get('calendarLinked') === 'true') {
-      this.calendarLinked = true;
-      window.localStorage.setItem('flowdeck.calendarLinked', 'true');
+      this.setCalendarLinked(true);
     } else {
-      this.calendarLinked = window.localStorage.getItem('flowdeck.calendarLinked') === 'true';
+      this.calendarLinked =
+        typeof window !== 'undefined' &&
+        typeof window.localStorage !== 'undefined' &&
+        window.localStorage.getItem(this.calendarStorageKey) === 'true';
     }
   }
 
   private showToast(): void {
     this.toastVisible = true;
     setTimeout(() => (this.toastVisible = false), 7000);
+  }
+
+  protected disconnectCalendar(): void {
+    this.setCalendarLinked(false);
+  }
+
+  private setCalendarLinked(state: boolean): void {
+    this.calendarLinked = state;
+    if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') return;
+    if (state) {
+      window.localStorage.setItem(this.calendarStorageKey, 'true');
+    } else {
+      window.localStorage.removeItem(this.calendarStorageKey);
+    }
   }
 }
